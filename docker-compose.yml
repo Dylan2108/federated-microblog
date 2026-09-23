@@ -2,7 +2,7 @@ x-postgres: &postgres-image postgres:16-alpine
 x-postgres-env: &postgres-env
   POSTGRES_DB: social
   POSTGRES_USER: social
-  POSGRES_PASSWORD: social
+  POSTGRES_PASSWORD: social
 x-postgres-healthcheck: &postgres-healthcheck
   test: ["CMD-SHELL", "pg_isready -U social"]
   interval: 5s
@@ -17,21 +17,21 @@ services:
     image: *postgres-image
     environment: *postgres-env
     volumes:
-      -postgres-a-data:/var/lib/postgresql/data
+      - postgres-a-data:/var/lib/postgresql/data
     healthcheck: *postgres-healthcheck
   
   postgres-b:
     image: *postgres-image
     environment: *postgres-env
     volumes:
-      -postgres-b-data:/var/lib/postgresql/data
+      - postgres-b-data:/var/lib/postgresql/data
     healthcheck: *postgres-healthcheck
   
   postgres-c:
     image: *postgres-image
     environment: *postgres-env
     volumes:
-      -postgres-c-data:/var/lib/postgresql/data
+      - postgres-c-data:/var/lib/postgresql/data
     healthcheck: *postgres-healthcheck
   
   server-a:
