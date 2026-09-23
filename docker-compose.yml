@@ -1,0 +1,73 @@
+x-postgres: &postgres-image postgres:16-alpine
+x-postgres-env: &postgres-env
+  POSTGRES_DB: social
+  POSTGRES_USER: social
+  POSGRES_PASSWORD: social
+x-postgres-healthcheck: &postgres-healthcheck
+  test: ["CMD-SHELL", "pg_isready -U social"]
+  interval: 5s
+  timeout: 3s
+  retries: 5
+
+x-server-build: &server-build
+  context: ./server
+
+services:
+  postgres-a:
+    image: *postgres-image
+    environment: *postgres-env
+    volumes:
+      -postgres-a-data:/var/lib/postgresql/data
+    healthcheck: *postgres-healthcheck
+  
+  postgres-b:
+    image: *postgres-image
+    environment: *postgres-env
+    volumes:
+      -postgres-b-data:/var/lib/postgresql/data
+    healthcheck: *postgres-healthcheck
+  
+  postgres-c:
+    image: *postgres-image
+    environment: *postgres-env
+    volumes:
+      -postgres-c-data:/var/lib/postgresql/data
+    healthcheck: *postgres-healthcheck
+  
+  server-a:
+    build: *server-build
+    environment:
+      DOMAIN: server-a
+      DATABASE_URL: postgresql+asyncpg://social:social@postgres-a:5432/social
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres-a:
+        condition: service_healthy
+  
+  server-b:
+    build: *server-build
+    environment:
+      DOMAIN: server-b
+      DATABASE_URL: postgresql+asyncpg://social:social@postgres-b:5432/social
+    ports:
+      - "8002:8000"
+    depends_on:
+      postgres-b:
+        condition: service_healthy
+  
+  server-c:
+    build: *server-build
+    environment:
+      DOMAIN: server-c
+      DATABASE_URL: postgresql+asyncpg://social:social@postgres-c:5432/social
+    ports:
+      - "8003:8000"
+    depends_on:
+      postgres-c:
+        condition: service_healthy
+
+volumes:
+  postgres-a-data:
+  postgres-b-data:
+  postgres-c-data:
