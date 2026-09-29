@@ -1,0 +1,6 @@
+from typing import Protocol
+from app.domain.entities import Actor
+
+class ActorRepo(Protocol):
+    async def get(self, actor_id: str) -> Actor | None: ...
+    def add(self, actor: Actor) -> None: ...
