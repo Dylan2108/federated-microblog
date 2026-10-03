@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
-from app.api import auth
+from app.api import auth, notes, users
 from app.core.config import settings
 from app.core.db import engine
 from app.repositories.tables import metadata
@@ -13,7 +13,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Red federada de micropublicaciones", lifespan=lifespan)
-app.include_router(auth.router)
+for module in (auth, users, notes):
+    app.include_router(module.router)
 
 @app.get("/health")
 async def health() -> dict:

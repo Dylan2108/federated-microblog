@@ -6,7 +6,7 @@ El mapeo se hace una vez, al importar este módulo; sólo lo importan los reposi
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, MetaData, String, Table
 from sqlalchemy.orm import registry, relationship
-from app.domain.entities import Actor
+from app.domain.entities import Actor, MAX_NOTE_LENGTH, Note
 
 metadata = MetaData()
 
@@ -22,5 +22,15 @@ actors = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
+notes = Table(
+    "notes",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("author_id", ForeignKey("actors.id", ondelete="CASCADE"),nullable=False, index=True),
+    Column("content", String(MAX_NOTE_LENGTH), nullable=False),
+    Column("published", DateTime(timezone=True), nullable=False, index=True)
+)
+
 mapper_registry = registry(metadata=metadata)
 mapper_registry.map_imperatively(Actor, actors)
+mapper_registry.map_imperatively(Note, notes, properties={"author": relationship(Actor, lazy="joined")})

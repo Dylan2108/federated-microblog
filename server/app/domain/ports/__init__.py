@@ -2,6 +2,7 @@
 """
 
 from app.domain.ports.actors import ActorRepo
+from app.domain.ports.notes import NoteRepo
 from app.domain.ports.repos import Repos
 
-__all__ = ["ActorRepo","Repos"]
+__all__ = ["ActorRepo","NoteRepo","Repos"]
