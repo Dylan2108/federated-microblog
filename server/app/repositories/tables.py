@@ -40,6 +40,14 @@ follows = Table(
     Column("created_at", DateTime(timezone=True), nullable=False)
 )
 
+timeline_entries = Table(
+    "timeline_entries",
+    metadata,
+    Column("owner_id", ForeignKey("actors.id", ondelete="CASCADE"), primary_key=True),
+    Column("note_id", ForeignKey("notes.id", ondelete="CASCADE"), primary_key=True),
+    Column("sort_date", DateTime(timezone=True), nullable=False, index=True),
+)
+
 mapper_registry = registry(metadata=metadata)
 mapper_registry.map_imperatively(Actor, actors)
 mapper_registry.map_imperatively(Note, notes, properties={"author": relationship(Actor, lazy="joined")})

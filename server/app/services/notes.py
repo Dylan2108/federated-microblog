@@ -3,6 +3,7 @@ import uuid
 from app.core.config import settings
 from app.domain.entities import Actor, Note
 from app.domain.ports import Repos
+from app.services import timeline
 
 async def create(repos: Repos, author: Actor, content: str) -> Note:
     note = Note(
@@ -12,6 +13,7 @@ async def create(repos: Repos, author: Actor, content: str) -> Note:
         content=content,
     )
     await repos.notes.add(note)
+    await timeline.fan_out(repos, note)
     await repos.commit()
     return note
 
