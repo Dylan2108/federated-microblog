@@ -5,28 +5,36 @@ entre varios servidores independientes, inspirada en ActivityPub.
 
 ## Estado actual
 
-tres servidores levantan con Docker Compose, cada uno con
-su propia base de datos PostgreSQL, y exponen un endpoint de salud.
+red social funcional *dentro de cada servidor*, todavía sin federación.
+
+- Registro e inicio de sesión.
+- Publicaciones de hasta 500 caracteres.
+- Seguir y dejar de seguir a usuarios **del mismo servidor**.
+- Timeline home: tus notas y las de quien sigues, las más recientes primero.
+- Interfaz web con Streamlit que permite elegir en qué servidor trabajar.
+
+Los tres servidores son independientes: un usuario de `server-a` todavía no puede ver ni seguir a uno
+de `server-b`
 
 ## Requisitos
 
 - Docker y Docker Compose (plugin `docker compose`, v2).
+- Python 3.12, solo para ejecutar los tests desde el host.
 
 ## Cómo ejecutar
 
-Levantar los tres servidores y sus bases de datos:
+Levantar los tres servidores , sus bases de datos y la interfaz:
 
 ```bash
 docker compose up -d --build
 ```
 
-Servidores expuestos en el host:
-
-| Servidor | URL local             |
-| -------- | --------------------- |
-| server-a | http://localhost:8001 |
-| server-b | http://localhost:8002 |
-| server-c | http://localhost:8003 |
+| Servicio   | URL local               | Qué es                                   |
+|------------|-------------------------|------------------------------------------|
+| ui         | http://localhost:8501   | Interfaz web (Streamlit)                 |
+| server-a   | http://localhost:8001   | API; documentación en `/docs`            |
+| server-b   | http://localhost:8002   | API; documentación en `/docs`            |
+| server-c   | http://localhost:8003   | API; documentación en `/docs`    
 
 Comprobar que cada uno responde:
 
@@ -35,6 +43,47 @@ curl localhost:8001/health   # {"status":"ok","domain":"server-a"}
 curl localhost:8002/health   # {"status":"ok","domain":"server-b"}
 curl localhost:8003/health   # {"status":"ok","domain":"server-c"}
 ```
+
+### Usar la interfaz
+
+1. Abre http://localhost:8501 y elige un servidor en la barra lateral.
+2. En **Registrarse**, crea una cuenta; luego entra desde **Iniciar sesión**.
+3. **Inicio**: publicar y ver tu timeline home.
+4. **Usuarios**: busca a otro usuario *del mismo servidor* por su nombre, síguele y mira sus notas.
+5. **Mi perfil**: a quién sigues, quién te sigue y tus publicaciones.
+
+Cada servidor tiene su propia sesión: puedes estar conectado en `server-a` y `server-b` a la vez.
+
+### Usar la API con curl
+
+```bash
+# registrarse e iniciar sesión
+curl -X POST localhost:8001/api/register -H 'content-type: application/json' \
+     -d '{"username":"ana","password":"secreto1","display_name":"Ana"}'
+TOKEN=$(curl -s -X POST localhost:8001/api/login -H 'content-type: application/json' \
+     -d '{"username":"ana","password":"secreto1"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+
+# publicar, seguir y ver la timeline
+curl -X POST localhost:8001/api/notes -H "authorization: Bearer $TOKEN" \
+     -H 'content-type: application/json' -d '{"content":"hola mundo"}'
+curl -X POST localhost:8001/api/users/beto/follow -H "authorization: Bearer $TOKEN"
+curl localhost:8001/api/timelines/home -H "authorization: Bearer $TOKEN"
+```
+
+La lista completa de endpoints está en http://localhost:8001/docs.
+
+### Tests
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+
+.venv/bin/pytest                          # todos (los e2e necesitan el compose levantado)
+.venv/bin/pytest tests/unit               # solo unitarios, sin Docker
+.venv/bin/pytest tests/e2e/test_local.py::test_follow_backfills_and_fans_out   # uno concreto
+```
+
+Si los servidores no están levantados, los tests e2e se marcan como *skipped* en lugar de fallar.
 
 Ver logs de un servidor:
 
