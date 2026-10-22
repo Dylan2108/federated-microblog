@@ -1,0 +1,29 @@
+meta {
+    name: Login
+    type: http
+    seq: 3
+}
+
+post {
+    url: {{urlA}}/api/login
+    body: json
+    auth: none
+}
+
+body:json {
+    {
+        "username": "{{user}}",
+        "password": "{{password}}"
+    }
+}
+
+script:post-response {
+    if (res.status === 200 && res.body.token) {
+        bru.setVar("token", res.body.token)
+    }
+}
+
+docs {
+    Inicia sesión y guarda el token en la variable `token`; el resto de peticiones lo envían
+    automáticamente en la cabecera `Authorization: Bearer`.
+}

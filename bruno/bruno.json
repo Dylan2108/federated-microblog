@@ -1,0 +1,6 @@
+{
+    "version": "1",
+    "name": "Red federada de micropublicaciones",
+    "type": "collection",
+    "ignore": ["node_modules", ".git"]
+}

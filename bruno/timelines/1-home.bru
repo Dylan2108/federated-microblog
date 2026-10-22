@@ -1,0 +1,23 @@
+meta {
+    name: Home timeline
+    type: http
+    seq: 1
+}
+
+get {
+    url: {{urlA}}/api/timelines/home?limit=50
+    body: none
+    auth: bearer
+}
+
+params:query {
+    limit: 50
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Timeline home del usuario autenticado: sus notas y las de quien sigue, de más reciente a más antigua.
+}

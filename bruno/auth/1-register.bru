@@ -1,0 +1,23 @@
+meta {
+    name: Register user
+    type: http
+    seq: 1
+}
+
+post {
+    url: {{urlA}}/api/register
+    body: json
+    auth: none
+}
+
+body:json {
+    {
+        "username": "{{user}}",
+        "password": "{{password}}",
+        "display_name": "Ana"
+    }
+}
+
+docs {
+    Registra al usuario principal en server-a. Si ya existe responde 409; se puede ignorar.
+}

@@ -1,0 +1,25 @@
+meta {
+    name: Publish note
+    type: http
+    seq: 1
+}
+
+post {
+    url: {{urlA}}/api/notes
+    body: json
+    auth: bearer
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+body:json {
+    {
+        "content": "Hola desde Bruno"
+    }
+}
+
+docs {
+    Publica una nota (1-500 caracteres) como el usuario autenticado.
+}

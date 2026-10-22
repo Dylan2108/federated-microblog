@@ -1,0 +1,15 @@
+meta {
+    name: Notes of the user
+    type: http
+    seq: 2
+}
+
+get {
+    url: {{urlA}}/api/users/{{otherUser}}/notes
+    body: None
+    auth: None
+}
+
+docs {
+    Notas publicadas por otro usuario de server-a. No requiere autenticación.
+}

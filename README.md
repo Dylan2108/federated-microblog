@@ -72,6 +72,25 @@ curl localhost:8001/api/timelines/home -H "authorization: Bearer $TOKEN"
 
 La lista completa de endpoints está en http://localhost:8001/docs.
 
+
+### Probar la API con Bruno
+
+En `bruno/` hay una colección de [Bruno](https://www.usebruno.com/) (cliente de API cuyas peticiones se
+guardan como ficheros de texto dentro del repositorio).
+
+1. Instala la aplicación de escritorio de Bruno (no es una dependencia del proyecto).
+2. *Open Collection* → elige la carpeta `bruno/` del repositorio.
+3. Selecciona el entorno **`local`** (arriba a la derecha).
+4. Ejecuta en orden: `auth` (registrar, registrar al otro usuario, login, me) → `notes` → `follows` → `timelines`.
+   El login guarda el token y el resto de peticiones lo envían solas.
+
+Las variables (`user`, `otherUser`, `password` y las URLs de los tres servidores) se cambian en
+`bruno/environments/local.bru`. Si el usuario ya existe, registrar devuelve 409: se puede seguir con el login.
+
+Por terminal, sin la aplicación: `cd bruno && npx @usebruno/cli run --env local`.
+
+Bruno sirve para explorar y hacer demos; los tests de contrato oficiales siguen siendo los de `tests/e2e/`.
+
 ### Tests
 
 ```bash

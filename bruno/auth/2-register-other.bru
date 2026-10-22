@@ -1,0 +1,23 @@
+meta {
+    name: Register other user
+    type: http
+    seq: 2
+}
+
+post {
+    url: {{urlA}}/api/register
+    body: json
+    auth: none
+}
+
+body:json {
+    {
+        "username": "{{otherUser}}",
+        "password": "{{password}}",
+        "display_name": "Beto"
+    }
+}
+
+docs {
+    Registra un segundo usuario en server-a, para poder seguirlo. Si ya existe responde 409.
+}

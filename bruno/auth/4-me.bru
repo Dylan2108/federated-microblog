@@ -1,0 +1,19 @@
+meta {
+    name: Me
+    type: http
+    seq: 4
+}
+
+get {
+    url: {{urlA}}/api/me
+    body: none
+    auth: bearer
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Devuelve el usuario autenticado. 401 si no se ha hecho login o el token no es válido.
+}

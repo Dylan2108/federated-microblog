@@ -1,0 +1,15 @@
+meta {
+    name: Followers of the other user
+    type: http
+    seq: 3
+}
+
+get {
+    url: {{urlA}}/api/users/{{otherUser}}/followers
+    body: none
+    auth: none
+}
+
+docs {
+    Lista de seguidores de otherUser. No requiere autenticación.
+}
