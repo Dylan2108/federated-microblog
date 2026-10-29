@@ -1,7 +1,10 @@
+import logging
 from app.core.config import settings
 from app.core.security import hash_password, verify_password
 from app.domain.entities import Actor
 from app.domain.ports import Repos
+
+log = logging.getLogger(__name__)
 
 class UsernameTaken(Exception):
     pass
@@ -25,6 +28,7 @@ async def register(repos: Repos, username: str, password: str, display_name: str
     )
     repos.actors.add(actor)
     await repos.commit()
+    log.info("user_registered", extra={"actor_id": actor.id})
     return actor
 
 async def authenticate(repos: Repos, username: str, password: str) -> Actor | None:

@@ -1,9 +1,12 @@
+import logging
 import uuid
 
 from app.core.config import settings
 from app.domain.entities import Actor, Note
 from app.domain.ports import Repos
 from app.services import timeline
+
+log = logging.getLogger(__name__)
 
 async def create(repos: Repos, author: Actor, content: str) -> Note:
     note = Note(
@@ -15,6 +18,7 @@ async def create(repos: Repos, author: Actor, content: str) -> Note:
     await repos.notes.add(note)
     await timeline.fan_out(repos, note)
     await repos.commit()
+    log.info("note_created", extra={"note_id": note.id, "author_id": author.id})
     return note
 
 async def by_author(repos: Repos, author: Actor, limit: int = 20) -> list[Note]:
