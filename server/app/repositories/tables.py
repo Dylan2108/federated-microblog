@@ -28,7 +28,8 @@ notes = Table(
     Column("id", String, primary_key=True),
     Column("author_id", ForeignKey("actors.id", ondelete="CASCADE"),nullable=False, index=True),
     Column("content", String(MAX_NOTE_LENGTH), nullable=False),
-    Column("published", DateTime(timezone=True), nullable=False, index=True)
+    Column("published", DateTime(timezone=True), nullable=False, index=True),
+    Column("visibility", String, nullable=False),
 )
 
 follows = Table(

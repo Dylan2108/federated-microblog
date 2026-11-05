@@ -1,0 +1,19 @@
+meta {
+    name: Federated timeline
+    type: http
+    seq: 3
+}
+
+get {
+    url: {{urlA}}/api/timelines/federated?limit=50
+    body: none
+    auth: none
+}
+
+params:query{
+    limit: 50
+}
+
+docs {
+    Notas públicas que server-a conoce, de cualquier servidor. No requiere autenticación.
+}

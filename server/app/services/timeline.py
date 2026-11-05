@@ -9,6 +9,7 @@ Estas funciones no hacen commit: lo hace el service que las llama, en la misma t
 
 from app.domain.entities import Actor, Note
 from app.domain.ports import Repos
+from app.services import privacy
 
 BACKFILL = 20
 
@@ -29,3 +30,11 @@ async def remove_author(repos: Repos, owner: Actor, author: Actor) -> None:
 
 async def home(repos: Repos, owner: Actor, limit: int = 50) -> list[Note]:
     return await repos.timeline.home(owner.id, limit)
+
+async def local(repos: Repos, limit: int = 50) -> list[Note]:
+    """Notas públicas de los usuarios de este servidor."""
+    return await repos.notes.latest(limit, privacy.PUBLIC_TIMELINES, local_only=True)
+
+async def federated(repos: Repos, limit: int = 50) -> list[Note]:
+    """Notas públicas que este servidor conoce, de cualquier servidor."""
+    return await repos.notes.latest(limit, privacy.PUBLIC_TIMELINES, local_only=False)

@@ -15,3 +15,11 @@ async def home(
     repos: Repos = Depends(get_repos),
 ):
     return await timeline.home(repos, user, limit)
+
+@router.get("/local", response_model=list[NoteOut])
+async def local(limit: int = Query(50, ge=1, le=200), repos: Repos = Depends(get_repos)):
+    return await timeline.local(repos, limit)
+
+@router.get("/federated", response_model=list[NoteOut])
+async def federated(limit: int = Query(50, ge=1, le=200), repos: Repos = Depends(get_repos)):
+    return await timeline.federated(repos, limit)

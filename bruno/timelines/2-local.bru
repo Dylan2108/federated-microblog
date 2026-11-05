@@ -1,0 +1,19 @@
+meta{
+    name: Local timeline
+    type: http
+    seq: 2
+}
+
+get {
+    url: {{urlA}}/api/timelines/local?limit=50
+    body: none
+    auth: none
+}
+
+params:query {
+    limit: 50
+}
+
+docs {
+    Notas públicas de los usuarios de server-a. No requiere autenticación.
+}

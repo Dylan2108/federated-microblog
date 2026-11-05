@@ -24,8 +24,8 @@ class Client:
         token = self.http.post("/login", json={"username": self.username, "password": "secreto1"})
         self.http.headers["Authorization"] = f"Bearer {token.json()['token']}"
 
-    def post(self, content: str) -> dict:
-        return self.http.post("/notes", json={"content": content}).json()
+    def post(self, content: str, visibility: str = "public") -> dict:
+        return self.http.post("/notes", json={"content": content, "visibility": visibility}).json()
 
     def home(self) -> list[str]:
         return [n["content"] for n in self.http.get("/timelines/home").json()]

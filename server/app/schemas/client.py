@@ -1,6 +1,7 @@
 """Formato de entrada y salida de la API que usa la interfaz."""
 
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
 from app.domain.entities import MAX_NOTE_LENGTH
 
@@ -23,13 +24,17 @@ class UserOut(BaseModel):
     display_name: str
     model_config = {"from_attributes": True}
 
+Visibility = Literal["public", "unlisted", "followers"]
+
 class NoteIn(BaseModel):
     content: str = Field(min_length=1, max_length=MAX_NOTE_LENGTH)
+    visibility: Visibility = "public"
 
 class NoteOut(BaseModel):
     id: str
     author: UserOut
     content: str
+    visibility: Visibility
     published: datetime
 
     model_config = {"from_attributes": True}

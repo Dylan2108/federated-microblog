@@ -16,10 +16,12 @@ auth:bearer {
 
 body:json {
     {
-        "content": "Hola desde Bruno"
+        "content": "Hola desde Bruno",
+        "visibility": "public"
     }
 }
 
 docs {
     Publica una nota (1-500 caracteres) como el usuario autenticado.
+    visibility: public (todos), unlisted (todos, fuera de local/federada) o followers (sólo seguidores).
 }

@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.deps import get_current_user, get_repos
+from app.api.deps import get_current_user, get_repos, get_optional_user
 from app.domain.entities import Actor
 from app.domain.ports import Repos
 from app.schemas.client import NoteOut, UserOut
@@ -19,8 +19,13 @@ async def profile(username: str, repos: Repos = Depends(get_repos)):
     return await get_user(username, repos)
 
 @router.get("/{username}/notes", response_model=list[NoteOut])
-async def user_notes(username: str, repos: Repos = Depends(get_repos)):
-    return await notes.by_author(repos, await get_user(username, repos))
+async def user_notes(
+    username: str,
+    limit: int = Query(50, ge=1, le=200),
+    viewer: Actor | None = Depends(get_optional_user),
+    repos: Repos = Depends(get_repos)
+):
+    return await notes.by_author(repos, await get_user(username, repos), viewer, limit)
 
 @router.get("/{username}/followers", response_model=list[UserOut])
 async def user_followers(username: str, repos: Repos = Depends(get_repos)):

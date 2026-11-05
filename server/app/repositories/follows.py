@@ -14,6 +14,10 @@ class FollowRepo:
     def add(self, follower_id: str, followed_id: str) -> None:
         self.db.add(Follow(follower_id=follower_id, followed_id=followed_id))
 
+    async def is_follower(self, follower_id: str, followed_id: str) -> bool:
+        follow = await self.db.get(Follow, (follower_id, followed_id))
+        return follow is not None and follow.state == "accepted"
+
     async def remove(self, follower_id: str, followed_id: str) -> None:
         await self.db.execute(
             delete(follows).where(follows.c.follower_id == follower_id, follows.c.followed_id == followed_id)
