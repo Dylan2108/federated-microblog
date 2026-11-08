@@ -13,8 +13,8 @@ hacia el centro (el dominio), y el dominio no conoce la base de datos, el framew
 
 ```
         Streamlit (usuario)
-               │ HTTP                        
-               ▼                              
+               │ HTTP                      
+               ▼                            
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ADAPTADORES DE ENTRADA      api/  ·   						       │
 │   FastAPI: validan (schemas/), llaman a un caso de uso, responden    │
@@ -91,3 +91,18 @@ La tabla `timeline_entries(owner_id, note_id, sort_date)` guarda qué notas ve c
 - Contraseñas con `scrypt` y sal aleatoria (biblioteca estándar).
 - Tokens de sesión `usuario:caducidad:firma-HMAC`, sin estado: el servidor no los guarda y los
   valida recalculando la firma con `SECRET_KEY`. Contrapartida: no se pueden revocar antes de caducar.
+
+## 6. Privacidad
+
+Cada nota tiene una visibilidad: `public`, `unlisted` o `followers`
+
+- **Un único punto de decisión:** `services/privacy.py`. `visibilities_for(viewer, autor)` devuelve
+  las visibilidades que un lector puede ver de un autor (todas si es el autor o un seguidor
+  aceptado; `public` y `unlisted` en otro caso) y `can_see` lo aplica a una nota. Las timelines
+  local y federada usan `PUBLIC_TIMELINES` (sólo `public`).
+- **No revelar existencia:** pedir una nota que no se puede ver devuelve 404, igual que si no
+  existiera.
+- **La home no necesita filtro:** el fan-out sólo reparte al autor y a sus seguidores aceptados,
+  que pueden ver cualquier visibilidad.
+- **Límite:** un servidor remoto que reciba una nota `followers` podría mostrarla a quien no
+  debe; la privacidad entre servidores depende de confiar en ellos.
