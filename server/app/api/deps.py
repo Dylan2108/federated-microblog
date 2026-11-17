@@ -5,13 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.core.security import read_token
 from app.domain.entities import Actor
-from app.repositories import Repos
+from app.domain.ports import Repos
+from app.repositories.sql import SqlRepos
 from app.services import users
 
 _bearer = HTTPBearer(auto_error=False)
 
 async def get_repos(db: AsyncSession = Depends(get_db)) -> Repos:
-    return Repos(db)
+    return SqlRepos(db)
 
 async def get_optional_user(
         credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),

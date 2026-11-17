@@ -43,6 +43,7 @@ hacia el centro (el dominio), y el dominio no conoce la base de datos, el framew
             core/db (sesión)  →  PostgreSQL (propia de este servidor)
 
   api/deps.py es la "raíz de composición": crea el Repos de SQL y se lo pasa a los casos de uso.
+    En los tests unitarios se les pasa repositories/memory.py (en memoria) en su lugar.
 ```
 
 Reglas:
@@ -50,7 +51,7 @@ Reglas:
 - **Las flechas apuntan al dominio.** `domain/` no importa nada del proyecto salvo sí mismo;
   `services/` sólo importa `domain/` y `core/` (config y seguridad, sin dependencias externas).
 - **Inversión de dependencias.** Los casos de uso no conocen los repositorios SQL: dependen de
-  los puertos de `domain/ports.py`.
+  los puertos de `domain/ports.py`.  Hay dos implementaciones, `repositories/` (PostgreSQL) y  `repositories/memory.py` (memoria), y cada petición HTTP recibe la primera desde `api/deps.py`.
 - **Entidades independientes del ORM.** `Actor`, `Note` y `Follow` son dataclasses. El esquema y
   su correspondencia con las entidades viven en `repositories/tables.py` mediante el *mapeo
   imperativo* de SQLAlchemy . Así una tabla puede cambiar sin tocar el dominio. Matiz: SQLAlchemy instrumenta las

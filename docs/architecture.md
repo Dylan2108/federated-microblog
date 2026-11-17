@@ -205,6 +205,7 @@ class Repos(Protocol):          # lo que recibe cada caso de uso
 
 - Los puertos se definen **en el dominio**, no en la capa de base de datos. Es la clave de
   la inversión de dependencias: el dominio dicta el contrato y la base de datos lo cumple.
+  - Hay **dos implementaciones**: `app/repositories/sql.py` (PostgreSQL) y `app/repositories/memory.py`
 - `Protocol` usa *tipado estructural*: una clase cumple el puerto si tiene los mismos
   métodos, sin necesidad de heredar de él.
 
@@ -249,8 +250,12 @@ la clase lo sepa.
 **Un repositorio por agregado** (`actors.py`, `notes.py`, `follows.py`, `timeline.py`):
 clases que reciben la sesión y exponen los métodos del puerto correspondiente.
 
-**`__init__.py`: la clase `Repos`.** Agrupa los cuatro repositorios sobre **una misma
-sesión** y expone `commit()`. Es la implementación real del puerto `Repos`.
+**`sql.py`: la clase `SqlRepos`.** Agrupa los cuatro repositorios sobre **una misma
+sesión** y expone `commit()`. Es la implementación SQL del puerto `Repos`.
+
+**`memory.py`: la clase `MemoryRepos`.** La misma interfaz con diccionarios en memoria. La usan los
+tests unitarios y el prototipo Ray. `repositories/__init__.py` está vacío a propósito: así importar
+`memory` no carga SQLAlchemy ni activa el mapeo de `tables.py`.
 
 ### 3.5 `api/`: el adaptador HTTP
 
@@ -260,7 +265,7 @@ sesión** y expone `commit()`. Es la implementación real del puerto `Repos`.
 - **`deps.py`: la raíz de composición.** Es el único sitio que decide qué implementación
   concreta se usa:
   - `get_repos`: abre una sesión de PostgreSQL por petición (`core/db.get_db`) y crea con
-    ella el `Repos` de SQL.
+    ella el `SqlRepos` (`repositories/sql.py`).
   - `get_current_user`: lee la cabecera `Authorization: Bearer <token>`, verifica el token y
     devuelve el `Actor` autenticado, o responde 401. Está aquí (y no en `services/`) porque
     es una cuestión de HTTP; y aquí (y no en `auth.py`) porque la usan casi todos los routers.
