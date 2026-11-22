@@ -21,8 +21,19 @@ class UserOut(BaseModel):
     id: str
     username: str
     domain: str
+    handle: str
     display_name: str
+    is_local: bool
+    locked: bool
     model_config = {"from_attributes": True}
+
+class ProfileIn(BaseModel):
+    """Campos omitidos = no se cambian."""
+    display_name: str | None = Field(default=None, min_length=1, max_length=50)
+    locked: bool | None = None
+
+class FollowOut(BaseModel):
+    state: Literal["accepted", "pending"]
 
 Visibility = Literal["public", "unlisted", "followers"]
 

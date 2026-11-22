@@ -15,5 +15,6 @@ auth:bearer {
 }
 
 docs {
-    El usuario autenticado empieza a seguir a otherUser (204). Es idempotente.
+    El usuario autenticado sigue a otherUser. Devuelve {"state": "accepted"} o, si otherUser tiene
+    la cuenta privada, {"state": "pending"} hasta que la acepte. Es idempotente.
 }

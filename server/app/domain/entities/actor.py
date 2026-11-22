@@ -14,3 +14,8 @@ class Actor:
     display_name: str = ""
     password_hash: str | None = None
     created_at: datetime = field(default_factory=utcnow)
+    locked: bool = False
+
+    @property
+    def handle(self) -> str:
+        return f"{self.username}@{self.domain}"

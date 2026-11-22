@@ -1,0 +1,27 @@
+meta {
+    name: Update me
+    type: http
+    seq: 5
+}
+
+patch {
+    url: {{urlA}}/api/me
+    body: json
+    auth: bearer
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+body:json {
+    {
+    "display_name": "Ana",
+    "locked": true
+    }
+}
+
+docs {
+    Cambia display_name y/o locked (cuenta privada). Los campos omitidos no cambian.
+    Pasar locked de true a false acepta las solicitudes pendientes.
+}

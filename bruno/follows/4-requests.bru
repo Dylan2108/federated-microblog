@@ -1,0 +1,20 @@
+meta {
+    name: Follow requests
+    type: http
+    seq: 4
+}
+
+get {
+    url: {{urlA}}/api/me/follow-requests
+    body: none
+    auth: bearer
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Solicitudes pendientes para seguir al usuario autenticado (cuenta privada).
+    Para generar una: login como otherUser, seguir a user y volver a hacer login como user.
+}

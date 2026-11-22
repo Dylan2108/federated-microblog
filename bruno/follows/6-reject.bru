@@ -1,0 +1,19 @@
+meta {
+    name: Reject request
+    type: http
+    seq: 6
+}
+
+post {
+    url: {{urlA}}/api/me/follow-requests/{{otherUser}}/reject
+    body: none
+    auth: bearer
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Rechaza la solicitud de otherUser (204). Rechazar sin solicitud no hace nada.
+}

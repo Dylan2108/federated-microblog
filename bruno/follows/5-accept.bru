@@ -1,0 +1,19 @@
+meta {
+    name: Accept request
+    type: http
+    seq: 5
+}
+
+post {
+    url: {{urlA}}/api/me/follow-requests/{{otherUser}}/accept
+    body: none
+    auth: bearer
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Acepta la solicitud de otherUser (204). 404 si no la hay; aceptar dos veces no da error.
+}

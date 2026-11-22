@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import get_current_user, get_repos
+from app.api.deps import get_repos
 from app.core.security import create_token
 from app.domain.entities import Actor
 from app.domain.ports import Repos
@@ -22,7 +22,3 @@ async def login(body: LoginIn, repos: Repos = Depends(get_repos)):
     if actor is None:
         raise HTTPException(401,"Usuario o contrasena incorrectos")
     return TokenOut(token=create_token(actor.username))
-
-@router.get("/me", response_model=UserOut)
-async def me(user: Actor = Depends(get_current_user)):
-    return user

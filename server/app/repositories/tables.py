@@ -20,6 +20,7 @@ actors = Table(
     Column("display_name", String, nullable=False),
     Column("password_hash",String),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("locked", Boolean, nullable=False),
 )
 
 notes = Table(

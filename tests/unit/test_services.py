@@ -3,7 +3,7 @@
 import asyncio
 from datetime import timedelta
 import pytest
-from app.domain.entities import Actor, Note
+from app.domain.entities import Actor, Follow, Note
 from app.services import follows, notes, timeline, users
 from app.repositories.memory import MemoryRepos
 
@@ -79,7 +79,7 @@ def test_fan_out_reaches_author_and_local_followers_only(repos):
     ana, beto, carla = register(repos, "ana"), register(repos, "beto"), register(repos, "carla")
     remoto = remote_actor(repos, "remoto")
     run(follows.follow(repos, beto, ana))
-    repos.follows.add(remoto.id, ana.id)
+    repos.follows.add(Follow(follower_id=remoto.id, followed_id=ana.id))
     run(notes.create(repos, ana, "hola"))
     owners = {o for o, _ in repos.timeline.entries}
     assert owners == {ana.id, beto.id}
@@ -241,3 +241,87 @@ def test_delete_is_idempotent_for_author_only(repos):
     run(notes.delete(repos, ana, note.id))  # ya borrada: sin error
     with pytest.raises(notes.NoteNotFound):
         run(notes.delete(repos, beto, note.id))
+
+# ---------- cuentas privadas y solicitudes ----------
+
+def private(repos, username):
+    actor = register(repos, username)
+    run(users.update_profile(repos, actor, locked=True))
+    return actor
+
+
+def names(actors):
+    return [a.username for a in actors]
+
+
+def test_follow_public_account_is_accepted(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    assert run(follows.follow(repos, ana, beto)) == "accepted"
+    assert run(follows.follow(repos, ana, beto)) == "accepted"  # idempotente
+
+
+def test_private_account_gains_no_follower_until_accepted(repos):
+    ana, beto = register(repos, "ana"), private(repos, "beto")
+    publish(repos, beto, "para seguidores", "followers")
+    assert run(follows.follow(repos, ana, beto)) == "pending"
+    assert run(follows.follow(repos, ana, beto)) == "pending"
+    assert names(run(follows.followers(repos, beto))) == []
+    assert names(run(follows.following(repos, ana))) == []
+    assert names(run(follows.requests(repos, beto))) == ["ana"]
+    # un seguidor pendiente no ve notas `followers` ni recibe nada en su home
+    assert profile(repos, beto, ana) == []
+    publish(repos, beto, "nueva", "followers")
+    assert home(repos, ana) == []
+
+
+def test_accept_request_backfills_and_is_idempotent(repos):
+    ana, beto = register(repos, "ana"), private(repos, "beto")
+    publish(repos, beto, "antes", "followers")
+    run(follows.follow(repos, ana, beto))
+    run(follows.accept(repos, beto, ana))
+    run(follows.accept(repos, beto, ana))
+    assert names(run(follows.followers(repos, beto))) == ["ana"]
+    assert names(run(follows.requests(repos, beto))) == []
+    assert home(repos, ana) == ["antes"]
+    assert profile(repos, beto, ana) == ["antes"]
+
+
+def test_accept_without_request_fails(repos):
+    ana, beto = register(repos, "ana"), private(repos, "beto")
+    with pytest.raises(follows.NoFollowRequest):
+        run(follows.accept(repos, beto, ana))
+
+
+def test_reject_request_is_idempotent_and_keeps_accepted_followers(repos):
+    ana, beto, carla = register(repos, "ana"), private(repos, "beto"), register(repos, "carla")
+    run(follows.follow(repos, ana, beto))
+    run(follows.follow(repos, carla, beto))
+    run(follows.accept(repos, beto, carla))
+    run(follows.reject(repos, beto, ana))
+    run(follows.reject(repos, beto, ana))    # ya no hay solicitud: sin efecto
+    run(follows.reject(repos, beto, carla))  # no echa a un seguidor aceptado
+    assert names(run(follows.requests(repos, beto))) == []
+    assert names(run(follows.followers(repos, beto))) == ["carla"]
+
+
+def test_unfollow_cancels_pending_request(repos):
+    ana, beto = register(repos, "ana"), private(repos, "beto")
+    run(follows.follow(repos, ana, beto))
+    run(follows.unfollow(repos, ana, beto))
+    assert names(run(follows.requests(repos, beto))) == []
+
+
+def test_unlocking_accepts_pending_requests(repos):
+    ana, beto = register(repos, "ana"), private(repos, "beto")
+    publish(repos, beto, "hola")
+    run(follows.follow(repos, ana, beto))
+    run(users.update_profile(repos, beto, locked=False))
+    assert names(run(follows.followers(repos, beto))) == ["ana"]
+    assert home(repos, ana) == ["hola"]
+
+
+def test_update_profile_changes_only_given_fields(repos):
+    ana = register(repos, "ana")
+    run(users.update_profile(repos, ana, display_name="Ana"))
+    assert ana.display_name == "Ana" and not ana.locked
+    assert ana.handle == f"ana@{ana.domain}"

@@ -4,7 +4,7 @@ Lo usan los tests unitarios de los services y el prototipo Ray (cada actor guard
 No depende de SQLAlchemy. `commit()` sólo cuenta las confirmaciones: no hay transacciones.
 """
 
-from app.domain.entities import Actor, Note, Repost, Tombstone
+from app.domain.entities import Actor, Note, Repost, Tombstone, Follow, ACCEPTED, PENDING
 
 class MemoryActorRepo:
     def __init__(self):
@@ -54,28 +54,38 @@ class MemoryNoteRepo:
 class MemoryFollowRepo:
     def __init__(self, actors: MemoryActorRepo):
         self.actors = actors
-        self.pairs: set[tuple[str,str]] = set()
+        self.by_key: dict[tuple[str, str], Follow] = {}
 
-    async def exists(self, follower_id, followed_id):
-        return (follower_id, followed_id) in self.pairs
+    async def get(self, follower_id: str, followed_id: str):
+        return self.by_key.get((follower_id, followed_id))
 
     async def is_follower(self, follower_id, followed_id):
-        return (follower_id, followed_id) in self.pairs # en memoria aún no hay estado pendiente
-
-    def add(self, follower_id, followed_id):
-        self.pairs.add((follower_id,followed_id))
+        follow = self.by_key.get((follower_id, followed_id))
+        return follow is not None and follow.state == ACCEPTED
+    
+    def add(self, follow):
+        self.by_key[(follow.follower_id, follow.followed_id)] = follow
 
     async def remove(self, follower_id, followed_id):
-        self.pairs.discard((follower_id, followed_id))
+        self.by_key.pop((follower_id, followed_id), None)
+
+    def _ids(self, actor_id, state):
+        return [f for (f, t), follow in self.by_key.items() if t == actor_id and follow.state == state]
 
     async def followers(self, actor_id):
-        return [self.actors.by_id[f] for f, t in self.pairs if t == actor_id]
+        return [self.actors.by_id[f] for f in self._ids(actor_id, ACCEPTED)]
+
+    async def requests(self, actor_id):
+        return [self.actors.by_id[f] for f in self._ids(actor_id, PENDING)]
 
     async def following(self, actor_id):
-        return [self.actors.by_id[t] for f, t in self.pairs if f == actor_id]
+        return [
+            self.actors.by_id[t] for (f, t), follow in self.by_key.items()
+            if f == actor_id and follow.state == ACCEPTED
+        ]
 
     async def local_follower_ids(self, actor_id):
-        return [f for f, t in self.pairs if t == actor_id and self.actors.by_id[f].is_local]
+        return [f for f in self._ids(actor_id, ACCEPTED) if self.actors.by_id[f].is_local]
 
 class MemoryRepostRepo:
     def __init__(self):
