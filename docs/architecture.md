@@ -211,7 +211,7 @@ class Repos(Protocol):          # lo que recibe cada caso de uso
 
 ### 3.3 `services/`: los casos de uso
 
-Un fichero por área: `users.py`, `notes.py`, `follows.py`, `timeline.py`. Contienen las
+ Un fichero por área: `users.py`, `notes.py`, `follows.py`, `timeline.py`, `privacy.py`.Contienen las
 **reglas de negocio**:
 
 | Service                | Reglas que implementa                                                                                                             |
@@ -259,7 +259,7 @@ tests unitarios y el prototipo Ray. `repositories/__init__.py` está vacío a pr
 
 ### 3.5 `api/`: el adaptador HTTP
 
-- **Routers** (`auth.py`, `users.py`, `notes.py`, `timelines.py`): un endpoint por
+- **Routers** (`auth.py`, `me.py`, `users.py`, `notes.py`, `timelines.py`):un endpoint por
   operación. Son **finos**: validan la entrada, llaman a un service y devuelven la respuesta.
   No contienen reglas de negocio.
 - **`deps.py`: la raíz de composición.** Es el único sitio que decide qué implementación

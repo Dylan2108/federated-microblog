@@ -125,6 +125,19 @@ Cada nota tiene una visibilidad: `public`, `unlisted` o `followers`
 - **Límite:** un servidor remoto que reciba una nota `followers` podría mostrarla a quien no
   debe; la privacidad entre servidores depende de confiar en ellos.
 
+### 6.1 Cuentas privadas
+
+- `Actor.locked` marca una cuenta privada. Seguirla crea un `Follow` en estado `pending`; sólo uno
+  `accepted` cuenta como seguidor (`followers`, `local_follower_ids`, `is_follower`), así que un pendiente
+  no recibe nada en su home ni ve notas `followers`. La regla de privacidad no cambia: ya preguntaba por
+  seguidores aceptados.
+- Aceptar pasa el `Follow` a `accepted` y hace el *backfill* en la home del nuevo seguidor; rechazar lo
+  borra. Ambas son idempotentes.
+- Pasar la cuenta a pública acepta todas las solicitudes pendientes en la misma transacción.
+- En la federación un seguimiento remoto también empieza `pending` hasta que llega el `Accept`.
+
+Bloqueos: fuera de alcance (opcional).
+
 ## 7. Ediciones, eliminaciones y desconexiones
 
 - **Edición:** cambia el contenido y fija `updated`. La regla *last-writer-wins* está en la
