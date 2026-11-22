@@ -29,8 +29,8 @@ hacia el centro (el dominio), y el dominio no conoce la base de datos, el framew
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ DOMINIO                     domain/                    Python puro   │
-│   entities.py   Actor, Note, Follow (dataclasses)                    │
-│   ports.py      interfaces de persistencia (Protocol): Repos, ...    │
+│   entities/     actor · note · follow · repost · tombstone           │
+│   ports/ actors · notes · follows · reposts · timeline · repos       │
 └───────────────────────────────▲──────────────────────────────────────┘
                                 │ implementan los puertos
                                 │ y mapean las entidades
@@ -87,6 +87,23 @@ La tabla `timeline_entries(owner_id, note_id, sort_date)` guarda qué notas ve c
   La alternativa, *fan-out en lectura*, invierte el coste: publicar es barato, pero leer la home
   requiere juntar las notas de todas las cuentas seguidas en cada petición.
 
+### 4.2 Republicaciones
+
+- Una republicación (`Repost`: quién, qué nota y cuándo) se guarda en la tabla `reposts` y se reparte como
+  una nota: a la home de quien republica y a las de sus seguidores locales. La entrada de timeline guarda
+  `reposted_by` y se ordena por la fecha de la republicación.
+- **Una nota, una entrada por home:** la clave de `timeline_entries` es `(owner_id, note_id)`. Si la nota
+  llega por otro camino, sólo se sustituye la entrada cuando la nueva es más reciente
+  (`ON CONFLICT DO UPDATE … WHERE sort_date < excluded.sort_date`). Así una home muestra la republicación
+  más reciente y repetir un reparto no cambia nada (idempotente).
+- **Deshacer** borra las entradas que llegaron por esa republicación y vuelve a repartir la nota por los
+  caminos que siguen en pie (el autor y las demás republicaciones): quien también seguía al autor la
+  conserva. Cuesta O(republicaciones × seguidores), aceptable para el tamaño del proyecto.
+- Sólo se republican notas `public` y `unlisted` (`privacy.can_repost`): republicar una `followers` la
+  enseñaría a seguidores de otra cuenta.
+- Límite conocido: al dejar de seguir a alguien salen también sus republicaciones, aunque alguna nota
+  republicada llegase además por otra cuenta seguida.
+
 ### 5.Autenticación de usuarios (cliente → servidor)
 
 - Contraseñas con `scrypt` y sal aleatoria (biblioteca estándar).
@@ -107,3 +124,17 @@ Cada nota tiene una visibilidad: `public`, `unlisted` o `followers`
   que pueden ver cualquier visibilidad.
 - **Límite:** un servidor remoto que reciba una nota `followers` podría mostrarla a quien no
   debe; la privacidad entre servidores depende de confiar en ellos.
+
+## 7. Ediciones, eliminaciones y desconexiones
+
+- **Edición:** cambia el contenido y fija `updated`. La regla *last-writer-wins* está en la
+  entidad (`Note.edit`): una edición sólo se aplica si es más reciente que la última conocida, así una
+  edición antigua que llegue tarde de otro servidor no pisa a una nueva. Depende de los relojes:
+  dos ediciones casi simultáneas desde servidores con relojes desfasados podrían resolverse al revés, un
+  riesgo aceptable porque sólo el servidor del autor edita.
+- **Borrado:** se borra la nota (la base de datos borra en cascada sus republicaciones y entradas de
+  timeline) y se guarda un `Tombstone` (id, autor, fecha). El tombstone hace el borrado idempotente
+  (borrar otra vez una nota propia devuelve 204) y, en la federación, permitirá rechazar un `Create` que
+  llegue después de su `Delete`.
+- Editar o borrar una nota que el usuario no puede ver devuelve 404, no 403: no se revela que existe.
+- Un servidor caído recibe lo pendiente al volver (consistencia eventual) gracias a la cola de reintentos.

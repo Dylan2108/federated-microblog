@@ -119,8 +119,8 @@ más cambiante y técnico: el framework web, la base de datos, el protocolo HTTP
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ DOMINIO                     domain/                    Python puro   │
-│   entities/     actor · note · follow          (dataclasses)         │
-│   ports/        actors · notes · follows · timeline · repos          │
+│     entities/     actor · note · follow · repost · tombstone         │
+│   ports/        actors · notes · follows · reposts · timeline · repos│       │
 └───────────────────────────────▲──────────────────────────────────────┘
                                 │ implementan los puertos
                                 │ y mapean las entidades
@@ -156,7 +156,7 @@ composición) conoce la implementación concreta de `repositories/`.
 
 ### 3.1 `domain/entities/`: las entidades
 
-Un fichero por entidad: `actor.py`, `note.py`, `follow.py`. Son **dataclasses de Python
+Un fichero por entidad: `actor.py`, `note.py`, `follow.py`, `repost.py`, `tombstone.py`. Son **dataclasses de Python
 puro**:
 
 ```python
