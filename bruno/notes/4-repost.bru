@@ -1,0 +1,23 @@
+meta {
+    name: Repost note
+    type: http
+    seq: 4
+}
+
+post {
+    url: {{urlA}}/api/notes/repost?id={{noteId}}
+    body: none
+    auth: bearer
+}
+
+params:query {
+    id: {{noteId}}
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Republica la nota: llega a la home de tus seguidores con `reposted_by`. Con una nota followers, 403.
+}

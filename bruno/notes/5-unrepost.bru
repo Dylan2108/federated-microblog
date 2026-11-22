@@ -1,0 +1,23 @@
+meta {
+    name: Undo repost
+    type: http
+    seq: 5
+}
+
+delete {
+    url: {{urlA}}/api/notes/repost?id={{noteId}}
+    body: none
+    auth: bearer
+}
+
+params:query {
+    id: {{noteId}}
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Deshace la republicación. Idempotente.
+}

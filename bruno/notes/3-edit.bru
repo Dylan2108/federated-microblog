@@ -1,0 +1,29 @@
+meta {
+    name: Edit note
+    type: http
+    seq: 3
+}
+
+patch {
+    url: {{urlA}}/api/notes?id={{noteId}}
+    body: json
+    auth: bearer
+}
+
+params:query {
+    id: {{noteId}}
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+body:json {
+    {
+    "content": "Editada desde Bruno"
+    }
+}
+
+docs {
+    Cambia el contenido de la última nota publicada y fija `updated`. Sólo el autor (si no, 403).
+}

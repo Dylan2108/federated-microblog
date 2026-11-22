@@ -5,8 +5,10 @@ así que el dominio no sabe cómo ni dónde se guardan.
 from app.domain.entities.actor import Actor, utcnow
 from app.domain.entities.note import MAX_NOTE_LENGTH, Note, FOLLOWERS, PUBLIC, UNLISTED, VISIBILITIES
 from app.domain.entities.follow import Follow
+from app.domain.entities.repost import Repost
+from app.domain.entities.tombstone import Tombstone
 
 __all__ = [
     "MAX_NOTE_LENGTH","Actor","Follow","Note","utcnow", "FOLLOWERS", "PUBLIC",
-    "UNLISTED", "VISIBILITIES"
+    "UNLISTED", "VISIBILITIES", "Repost", "Tombstone"
 ]

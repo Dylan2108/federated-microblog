@@ -21,6 +21,10 @@ body:json {
     }
 }
 
+script:post-response {
+    bru.setVar("noteId", res.body.id)
+}
+
 docs {
     Publica una nota (1-500 caracteres) como el usuario autenticado.
     visibility: public (todos), unlisted (todos, fuera de local/federada) o followers (sólo seguidores).

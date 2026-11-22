@@ -26,8 +26,10 @@ class UserOut(BaseModel):
 
 Visibility = Literal["public", "unlisted", "followers"]
 
-class NoteIn(BaseModel):
+class NoteEditIn(BaseModel):
     content: str = Field(min_length=1, max_length=MAX_NOTE_LENGTH)
+
+class NoteIn(NoteEditIn):
     visibility: Visibility = "public"
 
 class NoteOut(BaseModel):
@@ -36,5 +38,7 @@ class NoteOut(BaseModel):
     content: str
     visibility: Visibility
     published: datetime
+    updated: datetime | None = None
+    reposted_by: UserOut | None = None
 
     model_config = {"from_attributes": True}

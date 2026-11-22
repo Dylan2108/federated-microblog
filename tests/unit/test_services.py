@@ -1,8 +1,9 @@
 """Lógica de services/ probada con el adaptador en memoria: sin Docker ni Postgres."""
 
 import asyncio
+from datetime import timedelta
 import pytest
-from app.domain.entities import Actor
+from app.domain.entities import Actor, Note
 from app.services import follows, notes, timeline, users
 from app.repositories.memory import MemoryRepos
 
@@ -21,7 +22,11 @@ def remote_actor(repos, username):
     return actor
 
 def home(repos, actor):
-    return [n.content for n in run(timeline.home(repos, actor))]
+    return [n.content for n, _ in run(timeline.home(repos, actor))]
+
+def home_with_reposts(repos, actor):
+    """[(contenido, quién la republicó o None)]"""
+    return [(n.content, by and by.username) for n, by in run(timeline.home(repos, actor))]
 
 # ---------- usuarios ----------
 def test_register_defaults_display_name_and_commits(repos):
@@ -85,3 +90,154 @@ def test_home_is_newest_first(repos):
     for text in ["1", "2", "3"]:
         run(notes.create(repos, ana, text))
     assert home(repos, ana) == ["3", "2", "1"]
+
+# ---------- visibilidad y privacidad ----------
+def publish(repos, author, content, visibility="public"):
+    return run(notes.create(repos, author, content, visibility))
+
+def profile(repos, author, viewer):
+    return [n.content for n in run(notes.by_author(repos, author, viewer))]
+
+def test_invalid_visibility_rejected(repos):
+    ana = register(repos, "ana")
+    with pytest.raises(notes.InvalidVisibility):
+        publish(repos, ana, "x", "secreta")
+
+def test_profile_hides_followers_notes_from_non_followers(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    publish(repos, ana, "pública")
+    publish(repos, ana, "no listada", "unlisted")
+    publish(repos, ana, "solo seguidores", "followers")
+    assert profile(repos, ana, None) == ["no listada", "pública"]
+    assert profile(repos, ana, beto) == ["no listada", "pública"]
+    run(follows.follow(repos, beto, ana))
+    assert profile(repos, ana, beto) == ["solo seguidores", "no listada", "pública"]
+    assert profile(repos, ana, ana) == ["solo seguidores", "no listada", "pública"]
+
+def test_get_visible_hides_followers_note_without_revealing_it(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    note = publish(repos, ana, "secreto", "followers")
+    assert run(notes.get_visible(repos, note.id, None)) is None
+    assert run(notes.get_visible(repos, note.id, beto)) is None
+    assert run(notes.get_visible(repos, "http://x/notes/no-existe", beto)) is None
+    run(follows.follow(repos, beto, ana))
+    assert run(notes.get_visible(repos, note.id, beto)).content == "secreto"
+
+def test_followers_note_reaches_followers_home_only(repos):
+    ana, beto, carla = register(repos, "ana"), register(repos, "beto"), register(repos, "carla")
+    run(follows.follow(repos, beto, ana))
+    publish(repos, ana, "para seguidores", "followers")
+    assert home(repos, beto) == ["para seguidores"]
+    assert home(repos, carla) == []
+
+def test_local_and_federated_timelines_only_show_public(repos):
+    ana = register(repos, "ana")
+    remoto = remote_actor(repos, "remoto")
+    publish(repos, ana, "publica local")
+    publish(repos, ana, "no listada", "unlisted")
+    publish(repos, ana, "seguidores", "followers")
+    run(repos.notes.add(Note(id="http://server-b:8000/notes/1", author=remoto, author_id= remoto.id, content="publica remota")))
+    local = [n.content for n in run(timeline.local(repos))]
+    federated = [n.content for n in run(timeline.federated(repos))]
+    assert local == ["publica local"]
+    assert sorted(federated) == ["publica local", "publica remota"]
+
+# ---------- republicar, editar y borrar ----------
+def test_repost_reaches_reposter_followers_with_reposted_by(repos):
+    ana, beto, carla = register(repos, "ana"), register(repos, "beto"), register(repos, "carla")
+    run(follows.follow(repos, carla, beto))
+    note = publish(repos, ana, "de ana")
+    run(notes.repost(repos, beto, note.id))
+    assert home_with_reposts(repos, carla) == [("de ana", "beto")]
+    assert home_with_reposts(repos, beto) == [("de ana", "beto")]
+
+def test_repost_does_not_duplicate_in_home_and_is_idempotent(repos):
+    ana, beto, carla = register(repos, "ana"), register(repos, "beto"), register(repos, "carla")
+    run(follows.follow(repos, carla, ana))
+    run(follows.follow(repos, carla, beto))
+    note = publish(repos, ana, "de ana")
+    before = repos.commits
+    run(notes.repost(repos, beto, note.id))
+    run(notes.repost(repos, beto, note.id))
+    assert repos.commits == before + 1
+    assert home_with_reposts(repos, carla) == [("de ana", "beto")]
+
+def test_repost_is_ordered_by_repost_date(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    old = publish(repos, ana, "antigua")
+    publish(repos, beto, "propia")
+    run(notes.repost(repos, beto, old.id))
+    assert home(repos, beto) == ["antigua", "propia"]
+
+def test_followers_note_cannot_be_reposted(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    run(follows.follow(repos, beto, ana))
+    note = publish(repos, ana, "secreto", "followers")
+    with pytest.raises(notes.NotRepostable):
+        run(notes.repost(repos, beto, note.id))
+
+def test_unrepost_keeps_note_for_who_follows_author(repos):
+    ana, beto, carla, dani = (register(repos, n) for n in ("ana", "beto", "carla", "dani"))
+    run(follows.follow(repos, carla, ana))
+    run(follows.follow(repos, carla, beto))
+    run(follows.follow(repos, dani, beto))
+    note = publish(repos, ana, "de ana")
+    run(notes.repost(repos, beto, note.id))
+    run(notes.unrepost(repos, beto, note.id))
+    run(notes.unrepost(repos, beto, note.id))
+    assert home_with_reposts(repos, carla) == [("de ana", None)] #Sigue a la autora
+    assert home(repos, dani) == []
+
+def test_unrepost_falls_back_to_another_repost(repos):
+    ana, beto, carla, dani = (register(repos, n) for n in ("ana", "beto", "carla", "dani"))
+    run(follows.follow(repos, dani, beto))
+    run(follows.follow(repos, dani, carla))
+    note = publish(repos, ana, "de ana")
+    run(notes.repost(repos, carla, note.id))
+    run(notes.repost(repos, beto, note.id))
+    run(notes.unrepost(repos, beto, note.id))
+    assert home_with_reposts(repos, dani) == [("de ana", "carla")]
+
+def test_edit_only_by_author_and_sets_updated(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    note = publish(repos, ana, "original")
+    with pytest.raises(notes.NotAuthor):
+        run(notes.edit(repos, beto, note.id, "pirata"))
+    edited = run(notes.edit(repos, ana, note.id, "editada"))
+    assert edited.content == "editada" and edited.updated is not None
+    assert home(repos, ana) == ["editada"]
+
+def test_edit_hidden_note_is_not_found(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    note = publish(repos, ana, "secreto", "followers")
+    with pytest.raises(notes.NoteNotFound):  # 404, no 403: no revela que existe
+        run(notes.edit(repos, beto, note.id, "x"))
+
+def test_edit_last_writer_wins():
+    ana = Actor(id="http://a/users/ana", username="ana", domain="a", is_local=True)
+    note = Note(id="http://a/notes/1", author_id=ana.id, author=ana, content="v0")
+    t = note.published
+    assert note.edit("v2", t + timedelta(seconds=2))
+    assert not note.edit("v1", t + timedelta(seconds=1))  # edición antigua que llega tarde
+    assert note.content == "v2"
+
+def test_delete_removes_note_reposts_and_home_entries(repos):
+    ana, beto, carla = register(repos, "ana"), register(repos, "beto"), register(repos, "carla")
+    run(follows.follow(repos, carla, beto))
+    note = publish(repos, ana, "efímera")
+    run(notes.repost(repos, beto, note.id))
+    run(notes.delete(repos, ana, note.id))
+    assert home(repos, ana) == home(repos, beto) == home(repos, carla) == []
+    assert run(repos.reposts.of_note(note.id)) == []
+    assert run(notes.get_visible(repos, note.id, ana)) is None
+    assert run(repos.notes.get_tombstone(note.id)).author_id == ana.id
+
+def test_delete_is_idempotent_for_author_only(repos):
+    ana, beto = register(repos, "ana"), register(repos, "beto")
+    note = publish(repos, ana, "x")
+    with pytest.raises(notes.NotAuthor):
+        run(notes.delete(repos, beto, note.id))
+    run(notes.delete(repos, ana, note.id))
+    run(notes.delete(repos, ana, note.id))  # ya borrada: sin error
+    with pytest.raises(notes.NoteNotFound):
+        run(notes.delete(repos, beto, note.id))

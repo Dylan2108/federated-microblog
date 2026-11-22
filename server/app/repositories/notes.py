@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.entities import Note
+from app.domain.entities import Note, Tombstone
 from app.repositories.tables import actors, notes
 
 class NoteRepo:
@@ -14,6 +14,14 @@ class NoteRepo:
 
     async def get(self, note_id: str) -> Note | None:
         return await self.db.get(Note, note_id)
+
+    async def delete(self, note: Note) -> None:
+        # Las republicaciones y las entradas de timeline se borran en cascada (tables.py).
+        self.db.add(Tombstone(id=note.id, author_id=note.author_id))
+        await self.db.delete(note)
+
+    async def get_tombstone(self, note_id: str) -> Tombstone | None:
+        return await self.db.get(Tombstone, note_id)
 
     async def recent_by_author(self, author_id: str, limit: int, visibilities: set[str] | None = None) -> list[Note]:
         query = select(Note).where(notes.c.author_id == author_id)

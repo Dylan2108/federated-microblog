@@ -1,0 +1,23 @@
+meta {
+    name: Delete note
+    type: http
+    seq: 6
+}
+
+delete {
+    url: {{urlA}}/api/notes?id={{noteId}}
+    body: none
+    auth: bearer
+}
+
+params:query {
+    id: {{noteId}}
+}
+
+auth:bearer {
+    token: {{token}}
+}
+
+docs {
+    Borra la nota y sus republicaciones de todas las homes. Repetirlo devuelve 204 (idempotente).
+}

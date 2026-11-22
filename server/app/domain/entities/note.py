@@ -19,3 +19,12 @@ class Note:
     author: Actor
     published: datetime = field(default_factory=utcnow)
     visibility: str = PUBLIC
+    updated: datetime | None = None
+
+    def edit(self, content: str, at: datetime) -> bool:
+        """Last-writer-wins: aplica la edición sólo si es más reciente que la última conocida.
+        Así una edición antigua que llega tarde de otro servidor no pisa a una nueva."""
+        if self.updated is not None and at <= self.updated:
+            return False
+        self.content, self.updated = content, at
+        return True

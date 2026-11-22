@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.actors import ActorRepo
 from app.repositories.follows import FollowRepo
 from app.repositories.notes import NoteRepo
+from app.repositories.reposts import RepostRepo
 from app.repositories.timeline import TimelineRepo
 
 class SqlRepos:
@@ -11,6 +12,7 @@ class SqlRepos:
         self.db = db
         self.actors = ActorRepo(db)
         self.notes = NoteRepo(db)
+        self.reposts = RepostRepo(db)
         self.follows = FollowRepo(db)
         self.timeline = TimelineRepo(db)
 
