@@ -1,8 +1,7 @@
 import logging
 import uuid
 
-from app.core.config import settings
-from app.domain.entities import Actor, Note, VISIBILITIES, Repost, utcnow
+from app.domain.entities import Actor, Note, VISIBILITIES, Repost, utcnow, base_url
 from app.domain.ports import Repos
 from app.services import timeline, privacy
 
@@ -24,7 +23,7 @@ async def create(repos: Repos, author: Actor, content: str, visibility: str = "p
     if visibility not in VISIBILITIES:
         raise InvalidVisibility(visibility)
     note = Note(
-        id=f"{settings.base_url}/notes/{uuid.uuid4()}",
+        id=f"{base_url(repos.domain)}/notes/{uuid.uuid4()}",
         author=author,
         author_id=author.id,
         content=content,

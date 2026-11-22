@@ -5,6 +5,7 @@ No depende de SQLAlchemy. `commit()` sólo cuenta las confirmaciones: no hay tra
 """
 
 from app.domain.entities import Actor, Note, Repost, Tombstone, Follow, ACCEPTED, PENDING
+from app.domain.ports import Federation, NoFederation
 
 class MemoryActorRepo:
     def __init__(self):
@@ -139,7 +140,9 @@ class MemoryTimelineRepo:
 def _newest(notes, limit):
     return sorted(notes, key=lambda n: n.published, reverse=True)[:limit]
 class MemoryRepos:
-    def __init__(self):
+    def __init__(self, domain: str = "localhost", federation: Federation | None = None):
+        self.domain = domain
+        self.federation = federation or NoFederation()
         self.actors = MemoryActorRepo()
         self.notes = MemoryNoteRepo()
         self.reposts = MemoryRepostRepo()

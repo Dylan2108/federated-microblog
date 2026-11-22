@@ -12,9 +12,4 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-cambiar-en-produccion"
     token_ttl_seconds: int = 7 * 24 * 3600
 
-    @property
-    def base_url(self) -> str:
-        """URL con la que otros servidores alcanzan a éste dentro de la red de Docker."""
-        return f"http://{self.domain}:8000"
-
 settings = Settings()

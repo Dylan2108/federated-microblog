@@ -1,7 +1,6 @@
 import logging
-from app.core.config import settings
 from app.core.security import hash_password, verify_password
-from app.domain.entities import Actor
+from app.domain.entities import Actor, base_url
 from app.domain.ports import Repos
 from app.services import follows
 
@@ -10,19 +9,19 @@ log = logging.getLogger(__name__)
 class UsernameTaken(Exception):
     pass
 
-def local_actor_id(username: str) -> str:
-    return f"{settings.base_url}/users/{username}"
+def actor_id(domain: str, username: str) -> str:
+    return f"{base_url(domain)}/users/{username}"
 
 async def get_local(repos: Repos, username: str) -> Actor | None:
-    return await repos.actors.get(local_actor_id(username))
+    return await repos.actors.get(actor_id(repos.domain, username))
 
 async def register(repos: Repos, username: str, password: str, display_name: str) -> Actor:
     if await get_local(repos, username):
         raise UsernameTaken(username)
     actor = Actor(
-        id=local_actor_id(username),
+        id=actor_id(repos.domain, username),
         username=username,
-        domain=settings.domain,
+        domain=repos.domain,
         is_local=True,
         display_name=display_name or username,
         password_hash=hash_password(password)

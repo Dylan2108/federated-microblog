@@ -2,17 +2,19 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import read_token
 from app.domain.entities import Actor
-from app.domain.ports import Repos
+from app.domain.ports import Repos, NoFederation
 from app.repositories.sql import SqlRepos
 from app.services import users
 
 _bearer = HTTPBearer(auto_error=False)
 
 async def get_repos(db: AsyncSession = Depends(get_db)) -> Repos:
-    return SqlRepos(db)
+    # Hasta la F2 el servidor HTTP no habla con otros servidores (NoFederation).
+    return SqlRepos(db, settings.domain, NoFederation())
 
 async def get_optional_user(
         credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
