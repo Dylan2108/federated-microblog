@@ -20,16 +20,18 @@ BACKFILL = 20
 def _entry(owner_id: str, note_id: str, sort_date, reposted_by: str | None = None) -> dict:
     return {"owner_id": owner_id, "note_id": note_id, "sort_date": sort_date, "reposted_by": reposted_by}
 
-async def _audience(repos: Repos, actor_id: str) -> set[str]:
-    """Homes a las que llega lo que publica o republica `actor_id`: la suya y las de sus seguidores locales."""
-    return {actor_id, *await repos.follows.local_follower_ids(actor_id)}
+async def _audience(repos: Repos, actor: Actor) -> set[str]:
+    """Homes de este servidor a las que llega lo que publica o republica `actor`: las de sus seguidores
+    locales y la suya si es local (la de un actor remoto vive en su servidor)."""
+    owners = set(await repos.follows.local_follower_ids(actor.id))
+    return owners | {actor.id} if actor.is_local else owners
 
 async def fan_out(repos: Repos, note: Note) -> None:
-    owners = await _audience(repos, note.author_id)
+    owners = await _audience(repos, note.author)
     await repos.timeline.add([_entry(o, note.id, note.published) for o in owners])
 
 async def fan_out_repost(repos: Repos, repost: Repost) -> None:
-    owners = await _audience(repos, repost.actor_id)
+    owners = await _audience(repos, await repos.actors.get(repost.actor_id))
     await repos.timeline.add([_entry(o, repost.note_id, repost.published, repost.actor_id) for o in owners])
 
 async def remove_repost(repos: Repos, actor_id: str, note: Note) -> None:

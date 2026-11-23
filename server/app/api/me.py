@@ -22,7 +22,7 @@ async def follow_requests(user: Actor = Depends(get_current_user), repos: Repos 
     return await follows.requests(repos, user)
 
 async def _requester(handle: str, repos: Repos) -> Actor:
-    actor = await users.get_local(repos, handle)
+    actor = await users.find(repos, handle)
     if actor is None:
         raise HTTPException(404, "Usuario no encontrado")
     return actor

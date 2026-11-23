@@ -14,7 +14,7 @@ class MemoryActorRepo:
     async def get(self, actor_id):
         return self.by_id.get(actor_id)
 
-    def add(self, actor):
+    async def add(self, actor):
         self.by_id[actor.id] = actor
 
 class MemoryNoteRepo:

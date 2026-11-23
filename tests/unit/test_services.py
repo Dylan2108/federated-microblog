@@ -18,7 +18,7 @@ def register(repos, username):
 
 def remote_actor(repos, username):
     actor = Actor(id=f"http://server-b:8000/users/{username}", username=username, domain="server-b", is_local=False)
-    repos.actors.add(actor)
+    run(repos.actors.add(actor))
     return actor
 
 def home(repos, actor):

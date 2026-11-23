@@ -3,7 +3,7 @@ import uuid
 
 from app.domain.entities import Actor, Note, VISIBILITIES, Repost, utcnow, base_url
 from app.domain.ports import Repos
-from app.services import timeline, privacy
+from app.services import timeline, privacy, activities
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +31,8 @@ async def create(repos: Repos, author: Actor, content: str, visibility: str = "p
     )
     await repos.notes.add(note)
     await timeline.fan_out(repos, note)
+    create = activities.new(repos, "Create", author, activities.note_to_dict(note))
+    await activities.send(repos, await activities.remote_followers_domains(repos, author.id), create)
     await repos.commit()
     log.info("note_created", extra={"note_id": note.id, "author_id": author.id})
     return note
@@ -59,6 +61,8 @@ async def edit(repos: Repos, author: Actor, note_id: str, content: str) -> Note:
     if note.author_id != author.id:
         raise NotAuthor()
     note.edit(content, utcnow())
+    update = activities.new(repos, "Update", author, activities.note_to_dict(note))
+    await activities.send(repos, await activities.note_copy_domains(repos, note), update)
     await repos.commit()
     log.info("note_updated", extra={"note_id": note.id, "author_id": author.id})
     return note
@@ -73,7 +77,10 @@ async def delete(repos: Repos, author: Actor, note_id: str) -> None:
         raise NoteNotFound()
     if note.author_id != author.id:
         raise NotAuthor()
+    domains = await activities.note_copy_domains(repos, note)
     await repos.notes.delete(note)
+    delete_ = activities.new(repos, "Delete", author, {"type": "Tombstone", "id": note.id})
+    await activities.send(repos, domains, delete_)
     await repos.commit()
     log.info("note_deleted", extra={"note_id": note.id, "author_id": author.id})
 
@@ -87,6 +94,10 @@ async def repost(repos: Repos, actor: Actor, note_id: str) -> None:
     new = Repost(actor_id=actor.id, note_id=note.id)
     repos.reposts.add(new)
     await timeline.fan_out_repost(repos, new)
+    announce = activities.new(
+        repos, "Announce", actor, activities.note_to_dict(note), published = new.published.isoformat()
+    )
+    await activities.send(repos, await _repost_domains(repos, actor, note), announce)
     await repos.commit()
     log.info("note_reposted", extra={"note_id": note.id, "actor_id": actor.id})
 
@@ -97,5 +108,13 @@ async def unrepost(repos: Repos, actor: Actor, note_id: str) -> None:
         return
     await repos.reposts.remove(actor.id, note.id)
     await timeline.remove_repost(repos, actor.id, note)
+    undo = activities.new(repos, "Undo", actor, {"type": "Announce", "object": note.id})
+    await activities.send(repos, await _repost_domains(repos, actor, note), undo)
     await repos.commit()
     log.info("repost_removed", extra={"note_id": note.id, "actor_id": actor.id})
+
+async def _repost_domains(repos: Repos, actor: Actor, note: Note) -> set[str]:
+    """Una republicación va a los servidores de los seguidores de quien republica y al del autor
+    (que así sabe adónde enviar después la edición o el borrado de su nota)."""
+    domains = await activities.remote_followers_domains(repos, actor.id)
+    return domains if note.author.is_local else domains | {note.author.domain}

@@ -9,5 +9,6 @@ class ActorRepo:
     async def get(self, actor_id: str) -> Actor | None:
         return await self.db.get(Actor, actor_id)
 
-    def add(self, actor: Actor) -> None:
+    async def add(self, actor: Actor) -> None:
         self.db.add(actor)
+        await self.db.flush()
