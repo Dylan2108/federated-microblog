@@ -5,7 +5,7 @@ Uso desde cualquier capa:
     log.info("note_created", extra={"note_id": note.id})
 
 Cada línea lleva el `request_id` de la petición en curso (lo fija el middleware de `main.py`), así que una
-operación se sigue filtrando por ese id: `docker compose logs | grep <request_id>`.
+operación se sigue filtrando por ese id: `docker logs server-a 2>&1 | grep <request_id>`.
 """
 
 import json

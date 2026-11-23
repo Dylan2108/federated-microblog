@@ -52,7 +52,8 @@ estado actual del código.
   `server-a` no puede leer las tablas de `server-b`.
 - **La interfaz** (Streamlit) no es parte de ningún servidor: es un cliente que puede
   conectarse a cualquiera de los tres (selector en la barra lateral).
-- Todo se levanta con `docker compose up -d --build` (ver `docker-compose.yml`).
+- Cada nodo es un contenedor lanzado a mano con `docker run` en la red `fediverse`, sin Compose
+  (paso a paso en [`deploy.md`](deploy.md)).
 
 ### 1.2 Qué significa "federado"
 
@@ -417,5 +418,4 @@ Resumen de quién hace qué:
    en la API o, en el peor caso (un `async` sin `await`), un fallo silencioso. Mitigación
    posible: un test de contrato que compare, con `inspect`, los métodos de cada `Protocol`
    con los del repositorio SQL y el fake.
-2. **Sin migraciones.** Las tablas se crean al arrancar; un cambio de esquema exige
-   `docker compose down -v`, que borra los datos.
+2. **Sin migraciones.** Las tablas se crean al arrancar; un cambio de esquema exige  borrar los volúmenes de PostgreSQL (`despliegue.md`), y con ellos los datos.

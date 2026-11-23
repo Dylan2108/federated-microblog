@@ -1,8 +1,10 @@
+import asyncio
 import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from sqlalchemy.exc import DBAPIError
 
 from app.api import auth, notes, users, timelines, me
 from app.core.config import settings
@@ -13,10 +15,28 @@ from app.repositories.tables import metadata
 setup_logging()
 log = logging.getLogger("app.http")
 
+DB_ATTEMPTS = 30
+
+async def create_tables() -> None:
+    """Crea las tablas esperando a que la base de datos acepte conexiones.
+
+    Nada garantiza que PostgreSQL esté listo cuando arranca este servidor (se lanzan por separado con
+    `docker run`, o se reinicia uno de los dos), así que se reintenta en lugar de caerse.
+    """
+    for attempt in range(1, DB_ATTEMPTS + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(metadata.create_all)
+            return
+        except (OSError, DBAPIError) as exc:  # DNS, conexión rechazada, "the database system is starting up"
+            if attempt == DB_ATTEMPTS:
+                raise
+            log.warning("database_unavailable", extra={"attempt": attempt, "error": type(exc).__name__})
+            await asyncio.sleep(1)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(metadata.create_all)
+    await create_tables()
     log.info("server_started", extra={"domain": settings.domain})
     yield
 

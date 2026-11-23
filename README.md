@@ -18,15 +18,37 @@ de `server-b`
 
 ## Requisitos
 
-- Docker y Docker Compose (plugin `docker compose`, v2).
+- Docker (sin Compose: el despliegue se hace a mano con `docker run`).
 - Python 3.12, solo para ejecutar los tests desde el host.
 
 ## Cómo ejecutar
 
-Levantar los tres servidores , sus bases de datos y la interfaz:
+El despliegue se hace a mano con `docker run`, un contenedor por nodo. La guía paso a paso, con qué hace cada
+opción, está en [`docs/deploy.md`](docs/deploy.md). Resumen:
 
 ```bash
-docker compose up -d --build
+# imágenes (una por tipo de nodo) y red
+docker build -t social-server ./server
+docker build -t social-ui ./ui
+docker network create fediverse
+
+# una base de datos por servidor
+docker volume create postgres-a-data
+docker run -d --name postgres-a --network fediverse \
+  -e POSTGRES_DB=social -e POSTGRES_USER=social -e POSTGRES_PASSWORD=social \
+  -v postgres-a-data:/var/lib/postgresql/data postgres:16-alpine
+# … igual con postgres-b y postgres-c
+
+# los servidores (DOMAIN = nombre del contenedor)
+docker run -d --name server-a --network fediverse -p 8001:8000 \
+  -e DOMAIN=server-a -e DATABASE_URL=postgresql+asyncpg://social:social@postgres-a:5432/social \
+  social-server
+# … igual con server-b (8002) y server-c (8003)
+
+# la interfaz
+docker run -d --name ui --network fediverse -p 8501:8501 \
+  -e SERVERS=server-a=http://server-a:8000,server-b=http://server-b:8000,server-c=http://server-c:8000 \
+  social-ui
 ```
 
 | Servicio   | URL local               | Qué es                                   |
@@ -97,7 +119,7 @@ Bruno sirve para explorar y hacer demos; los tests de contrato oficiales siguen 
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 
-.venv/bin/pytest                          # todos (los e2e necesitan el compose levantado)
+.venv/bin/pytest                          # todos (los e2e necesitan los servidores levantados)
 .venv/bin/pytest tests/unit               # solo unitarios, sin Docker
 .venv/bin/pytest tests/e2e/test_local.py::test_follow_backfills_and_fans_out   # uno concreto
 ```
@@ -107,17 +129,27 @@ Si los servidores no están levantados, los tests e2e se marcan como *skipped* e
 Ver logs de un servidor:
 
 ```bash
-docker compose logs -f server-a
+docker logs -f server-a
 ```
 
-Parar todo (mantiene los datos en volúmenes):
+Actualizar el código de los servidores (los datos se conservan):
 
 ```bash
-docker compose down
+docker build -t social-server ./server
+docker rm -f server-a server-b server-c
+# y volver a lanzar sus tres `docker run`
+```
+
+Parar todo (mantiene los datos en los volúmenes):
+
+```bash
+docker rm -f ui server-a server-b server-c postgres-a postgres-b postgres-c
 ```
 
 Parar y borrar también los datos (útil si cambia el esquema de la base de datos):
 
 ```bash
-docker compose down -v
+docker rm -f server-a server-b server-c postgres-a postgres-b postgres-c
+docker volume rm postgres-a-data postgres-b-data postgres-c-data
+# y volver a lanzar las bases de datos y los servidores
 ```

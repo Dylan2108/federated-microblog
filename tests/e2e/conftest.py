@@ -1,4 +1,4 @@
-"""Los tests e2e necesitan los servidores levantados: docker compose up -d --build"""
+"""Los tests e2e necesitan los servidores levantados: (docs/deploy.md)."""
 
 import uuid
 import httpx
@@ -12,7 +12,7 @@ def servers_up():
         for url in SERVERS.values():
             httpx.get(f"{url}/health", timeout=2).raise_for_status()
     except httpx.HTTPError:
-        pytest.skip("Servidores no disponibles: ejecuta `docker compose up -d --build`")
+        pytest.skip("Servidores no disponibles: levántalos como indica docs/deploy.md")
 
 class Client:
     """Usuario recién registrado en un servidor, con su token."""
