@@ -1,0 +1,9 @@
+# Sólo afecta a las imágenes que se construyen desde la raíz (prototype_ray/).
+.git
+.venv
+**/__pycache__
+.pytest_cache
+docs
+tests
+bruno
+ui

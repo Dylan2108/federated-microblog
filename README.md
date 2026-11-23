@@ -153,3 +153,120 @@ docker rm -f server-a server-b server-c postgres-a postgres-b postgres-c
 docker volume rm postgres-a-data postgres-b-data postgres-c-data
 # y volver a lanzar las bases de datos y los servidores
 ```
+
+
+---
+
+## Prototipo Ray (Fase 1)
+
+El prototipo cumple el mismo contrato HTTP en los mismos puertos (8001–8003), así que **no puede estar
+levantado a la vez que la versión nativa**: antes, `docker stop server-a server-b server-c ui`.
+
+| Tipo de nodo | Imagen | Dockerfile | Instancias |
+|---|---|---|---|
+| Nodo del clúster Ray | `social-ray` | `prototype_ray/Dockerfile` | `ray-head` (cabeza), `ray-worker-a`, `ray-worker-b`, `ray-worker-c` |
+| Gateway HTTP | `social-ray-gateway` | `prototype_ray/Dockerfile.gateway` | `gateway-a`, `gateway-b`, `gateway-c` |
+| Interfaz | `social-ui` | `ui/Dockerfile` | `ui-ray` |
+
+No hay bases de datos: el estado de cada servidor vive en la memoria de su actor.
+
+### 1. Imágenes y red
+
+```bash
+docker build -t social-ray -f prototype_ray/Dockerfile .
+docker build -t social-ray-gateway -f prototype_ray/Dockerfile.gateway .
+docker network create fediverse      # si no existe ya
+```
+
+El contexto es la raíz del repositorio (`.`) porque la imagen lleva el código de `server/app` y el de
+`prototype_ray`. La imagen del gateway parte de `social-ray`: hay que construirlas en ese orden.
+
+### 2. Cabeza del clúster
+
+```bash
+docker run -d --name ray-head --network fediverse --shm-size=256m social-ray \
+  ray start --head --port=6379 --num-cpus=0 --object-store-memory=100000000 --block
+```
+
+| Opción | Para qué |
+|---|---|
+| `ray start --head --port=6379` | Arranca el nodo cabeza: el servicio de control del clúster (GCS), donde se registran nodos y actores con nombre. |
+| `--num-cpus=0` | La cabeza no ejecuta actores: sólo coordina. Los servidores irán a los workers. |
+| `--block` | Mantiene el proceso en primer plano, para que el contenedor no termine. |
+| `--object-store-memory=100000000` | Límite (100 MB) del almacén de objetos de Ray. Por defecto reserva el 30 % de la RAM; aquí sólo viajan peticiones pequeñas. |
+| `--shm-size=256m` | Ese almacén vive en memoria compartida (`/dev/shm`); los 64 MB que da Docker por defecto no bastan y Ray avisa de que usará el disco. |
+
+### 3. Workers
+
+Los nodos donde viven los actores: uno por servidor.
+
+```bash
+docker run -d --name ray-worker-a --network fediverse --shm-size=256m social-ray \
+  ray start --address=ray-head:6379 --resources='{"server-a": 1}' --object-store-memory=100000000 --block
+docker run -d --name ray-worker-b --network fediverse --shm-size=256m social-ray \
+  ray start --address=ray-head:6379 --resources='{"server-b": 1}' --object-store-memory=100000000 --block
+docker run -d --name ray-worker-c --network fediverse --shm-size=256m social-ray \
+  ray start --address=ray-head:6379 --resources='{"server-c": 1}' --object-store-memory=100000000 --block
+```
+
+| Opción | Para qué |
+|---|---|
+| `--address=ray-head:6379` | Lo único que un nodo necesita saber para unirse: la dirección de la cabeza. |
+| `--resources='{"server-a": 1}'` | Declara que este nodo aloja a `server-a`. El actor pide ese recurso (`prototype_ray/node.py`), así que sólo puede vivir aquí. |
+
+**Por qué se fija la colocación.** Sin ese recurso Ray coloca los actores donde quiere: en la primera
+prueba puso los tres servidores en el mismo worker, y matar ese contenedor los habría tumbado a todos. Con
+un worker por servidor, la caída de un nodo afecta a un único servidor, como en la versión nativa.
+
+### 4. Gateways
+
+Uno por servidor. Al arrancar crea el actor de su dominio si no existe y le reenvía cada petición.
+
+```bash
+docker run -d --name gateway-a --network fediverse --shm-size=256m -p 8001:8000 \
+  -e DOMAIN=server-a social-ray-gateway
+docker run -d --name gateway-b --network fediverse --shm-size=256m -p 8002:8000 \
+  -e DOMAIN=server-b social-ray-gateway
+docker run -d --name gateway-c --network fediverse --shm-size=256m -p 8003:8000 \
+  -e DOMAIN=server-c social-ray-gateway
+```
+
+`DOMAIN` es aquí el **nombre del actor** en el clúster (y el dominio de sus usuarios); ya no es un nombre
+de DNS: quien localiza a `server-b` es Ray, no la red de Docker. La cabeza se indica con `RAY_HEAD`
+(por defecto `ray-head:6379`).
+
+### 5. Interfaz y comprobación
+
+```bash
+docker run -d --name ui-ray --network fediverse -p 8501:8501 \
+  -e SERVERS=server-a=http://gateway-a:8000,server-b=http://gateway-b:8000,server-c=http://gateway-c:8000 \
+  social-ui
+
+curl localhost:8001/health                   # {"status":"ok","domain":"server-a"}
+docker exec ray-head ray status              # nodos del clúster y recursos
+.venv/bin/pytest -q
+```
+
+**Logs.** Los escribe el actor de cada servidor, así que no salen en `docker logs`: Ray los guarda en un
+fichero por proceso dentro del worker donde vive el actor.
+
+```bash
+docker exec ray-worker-a sh -c 'cat /tmp/ray/session_latest/logs/worker-*.out' | grep note_created
+```
+
+**Si muere un worker** (`docker kill ray-worker-c`), su gateway responde 503 y los demás servidores siguen
+funcionando. El servidor **no se recupera solo** y su estado se ha perdido: hay que volver a levantar el
+worker y reiniciar el gateway para que cree un actor nuevo, vacío.
+
+```bash
+docker start ray-worker-c && docker restart gateway-c
+```
+
+### Parar el prototipo
+
+```bash
+docker rm -f ui-ray gateway-a gateway-b gateway-c ray-worker-a ray-worker-b ray-worker-c ray-head
+```
+
+Al parar los workers **se pierden todos los datos**: no hay volúmenes. Es una diferencia deliberada con
+la versión nativa.

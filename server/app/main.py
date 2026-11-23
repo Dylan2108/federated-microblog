@@ -3,13 +3,15 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from sqlalchemy.exc import DBAPIError
 
 from app.api import auth, notes, users, timelines, me
+from app.api.deps import get_repos
 from app.core.config import settings
 from app.core.db import engine
 from app.core.log import request_id, setup_logging
+from app.domain.ports import Repos
 from app.repositories.tables import metadata
 
 setup_logging()
@@ -40,11 +42,16 @@ async def lifespan(app: FastAPI):
     log.info("server_started", extra={"domain": settings.domain})
     yield
 
-app = FastAPI(title="Red federada de micropublicaciones", lifespan=lifespan)
-for module in (auth, me,users, notes, timelines):
-    app.include_router(module.router)
+def create_app(lifespan=None) -> FastAPI:
+    """La aplicación HTTP del contrato. Es una función para que el prototipo Ray pueda crear la suya
+    (mismos routers, repositorios en memoria) sin la base de datos de este módulo."""
+    app = FastAPI(title="Red federada de micropublicaciones")
+    for module in (auth, me, users, notes, timelines):
+        app.include_router(module.router)
+    app.middleware("http")(request_context)
+    app.get("/health")(health)
+    return app
 
-@app.middleware("http")
 async def request_context(request: Request, call_next):
     """Asigna un request_id a cada petición (o reutiliza el del cliente) y registra una línea por petición."""
     rid = request.headers.get("X-Request-ID", "")[:64] or uuid.uuid4().hex[:12]
@@ -66,6 +73,5 @@ async def request_context(request: Request, call_next):
 def _ms_since(start: float) -> float:
     return round((time.perf_counter() - start) * 1000, 1)
 
-@app.get("/health")
-async def health() -> dict:
-    return {"status": "ok", "domain": settings.domain}
+async def health(repos: Repos = Depends(get_repos)) -> dict:
+    return {"status": "ok", "domain": repos.domain}

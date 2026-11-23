@@ -1,0 +1,6 @@
+# Gateway HTTP de un servidor. Parte de la imagen del nodo Ray: para hablar con los actores, el
+# contenedor se une al clúster como un nodo sin capacidad de cómputo (--num-cpus=0) y arranca el gateway.
+FROM social-ray
+
+ENV RAY_HEAD=ray-head:6379
+CMD ["sh", "-c", "ray start --address=$RAY_HEAD --num-cpus=0 --object-store-memory=100000000 && exec uvicorn prototype_ray.gateway:app --host 0.0.0.0 --port 8000 --no-access-log"]
