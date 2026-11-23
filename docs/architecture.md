@@ -120,7 +120,8 @@ más cambiante y técnico: el framework web, la base de datos, el protocolo HTTP
 ┌──────────────────────────────────────────────────────────────────────┐
 │ DOMINIO                     domain/                    Python puro   │
 │     entities/     actor · note · follow · repost · tombstone         │
-│   ports/        actors · notes · follows · reposts · timeline · repos│       │
+│     ports/        actors · notes · follows · reposts · timeline      │
+│                 activities · federation · repos                      │
 └───────────────────────────────▲──────────────────────────────────────┘
                                 │ implementan los puertos
                                 │ y mapean las entidades
@@ -211,7 +212,8 @@ class Repos(Protocol):          # lo que recibe cada caso de uso
 
 ### 3.3 `services/`: los casos de uso
 
- Un fichero por área: `users.py`, `notes.py`, `follows.py`, `timeline.py`, `privacy.py`.Contienen las
+ Un fichero por área: `users.py`, `notes.py`, `follows.py`, `timeline.py`, `privacy.py`, más
+`activities.py` e `inbox.py` (protocolo entre servidores).Contienen las
 **reglas de negocio**:
 
 | Service                | Reglas que implementa                                                                                                             |

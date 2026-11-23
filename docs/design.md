@@ -13,8 +13,8 @@ hacia el centro (el dominio), y el dominio no conoce la base de datos, el framew
 
 ```
         Streamlit (usuario)
-               │ HTTP                      
-               ▼                            
+               │ HTTP                    
+               ▼                          
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ADAPTADORES DE ENTRADA      api/  ·   						       │
 │   FastAPI: validan (schemas/), llaman a un caso de uso, responden    │
@@ -30,7 +30,8 @@ hacia el centro (el dominio), y el dominio no conoce la base de datos, el framew
 ┌──────────────────────────────────────────────────────────────────────┐
 │ DOMINIO                     domain/                    Python puro   │
 │   entities/     actor · note · follow · repost · tombstone           │
-│   ports/ actors · notes · follows · reposts · timeline · repos       │
+│  │   ports/        actors · notes · follows · reposts · timeline        │
+│                 activities · federation · repos                      │     │
 └───────────────────────────────▲──────────────────────────────────────┘
                                 │ implementan los puertos
                                 │ y mapean las entidades
@@ -63,14 +64,61 @@ Reglas:
 
 ## 3. Identidad
 
-- Identificador: `@usuario@dominio`.
+- Handle: `usuario@dominio` (también `@usuario@dominio`; sin dominio, el propio servidor).
+- Los ids son URLs con el `base_url` del servidor de origen (`http://server-a:8000/users/ana`,
+  `/notes/{uuid}`, `/activities/{uuid}`): son únicos en toda la red y dicen a quién pertenece cada objeto
+  (`activities.owned_by`).
+- Un actor remoto se guarda en `actors` con `is_local = False` la primera vez que se conoce: al buscar su
+  handle (`users.find` pregunta a su servidor con `Federation.fetch_actor`; 404 si no existe, 503 si no
+  responde) o al recibir una actividad suya.
+- Pendiente para la F2: documento de actor por HTTP y par de claves Ed25519 por actor local.
 
-## 4. Timelines
+## 4. Protocolo entre servidores (inspirado en ActivityPub)
+
+La lógica del protocolo está en el dominio, sin red: `services/activities.py` (formato y envío) y
+`services/inbox.py` (recepción). El transporte lo pone el adaptador del puerto `Federation`
+(en los tests, `tests/unit/fakes.py::Network`; F1, actores Ray; F2, cola persistente + HTTP).
+
+**Formato.** Cada actividad es un dict JSON `{id, type, actor, object}`. El actor (y la nota, cuando la
+hay) viaja **embebido**, para que el receptor no tenga que preguntar al emisor. No se afirma
+compatibilidad con ActivityPub.
+
+| Acción local                  | Actividad                                                                      | Se envía a                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Seguir a un remoto             | `Follow`                                                                     | servidor del seguido                                           |
+| Aceptar / rechazar a un remoto | `Accept` (+ `Create` de sus últimas 20 notas, como backfill) / `Reject` | servidor del seguidor                                          |
+| Dejar de seguir a un remoto    | `Undo(Follow)`                                                               | servidor del seguido                                           |
+| Publicar                       | `Create`                                                                     | servidores con seguidores aceptados del autor                  |
+| Editar / borrar                | `Update` / `Delete` (Tombstone)                                            | servidores que pudieron recibir la nota (abajo)                |
+| Republicar / deshacer          | `Announce` / `Undo(Announce)`                                              | servidores de los seguidores de quien republica + el del autor |
+
+- **Seguir a un remoto** siempre empieza `pending` en el servidor del seguidor. El del seguido decide
+  (cuenta pública o privada) y responde; cada servidor guarda su copia del `Follow`.
+- **Privacidad:** una nota sólo sale hacia servidores donde el autor tiene seguidores aceptados, así que
+  una `followers` nunca llega a un servidor sin seguidores.
+- **Edición y borrado llegan a todas las copias.** El servidor del autor los envía a sus seguidores y,
+  por cada republicación, al servidor de quien republicó (o, si es local, a los de sus seguidores). Quien
+  recibe un `Update`/`Delete` y tiene republicaciones locales de la nota lo **reenvía** igual a los
+  seguidores de quienes la republicaron (`activities.note_copy_domains`). Como el reenvío conserva el `id`,
+  quien ya la tenga la descarta.
+- **Idempotencia:** `inbox.receive` guarda el `id` de cada actividad (`received_activities`) en la misma
+  transacción que sus efectos y descarta las repetidas (`activity_duplicate`). Además los efectos son
+  idempotentes por sí mismos (una nota está una vez en cada home, el `Follow` se busca antes de crearlo).
+- **Orden:** un `Delete` que llega antes que su `Create` deja un tombstone y el `Create` posterior se
+  rechaza; una edición antigua que llega tarde no pisa a una nueva (*last-writer-wins*, §7).
+- **Autorización mínima:** el actor debe pertenecer a su dominio y no puede ser de este servidor; sólo el
+  autor edita o borra su nota, sólo el seguido acepta. Que el actor sea quien dice ser lo garantizarán las
+  **firmas Ed25519** de la F2: hoy un servidor podría hacerse pasar por usuarios de otro.
+- **Trazas:** cada actividad registra `activity_sent` (con `to`), `activity_received`,
+  `activity_duplicate` o `activity_rejected` (con `reason`), siempre con su `activity_id`: con `grep` se
+  sigue entre servidores.
+
+## 5. Timelines
 
 Timelines por fan-out en escritura: al llegar una publicación se inserta en la
 timeline de cada seguidor local que tenga permiso de verla.
 
-### 4.1 Timeline home
+### 5.1 Timeline home
 
 La tabla `timeline_entries(owner_id, note_id, sort_date)` guarda qué notas ve cada usuario local.
 
@@ -87,7 +135,7 @@ La tabla `timeline_entries(owner_id, note_id, sort_date)` guarda qué notas ve c
   La alternativa, *fan-out en lectura*, invierte el coste: publicar es barato, pero leer la home
   requiere juntar las notas de todas las cuentas seguidas en cada petición.
 
-### 4.2 Republicaciones
+### 5.2 Republicaciones
 
 - Una republicación (`Repost`: quién, qué nota y cuándo) se guarda en la tabla `reposts` y se reparte como
   una nota: a la home de quien republica y a las de sus seguidores locales. La entrada de timeline guarda
@@ -104,13 +152,13 @@ La tabla `timeline_entries(owner_id, note_id, sort_date)` guarda qué notas ve c
 - Límite conocido: al dejar de seguir a alguien salen también sus republicaciones, aunque alguna nota
   republicada llegase además por otra cuenta seguida.
 
-### 5.Autenticación de usuarios (cliente → servidor)
+### 6.Autenticación de usuarios (cliente → servidor)
 
 - Contraseñas con `scrypt` y sal aleatoria (biblioteca estándar).
 - Tokens de sesión `usuario:caducidad:firma-HMAC`, sin estado: el servidor no los guarda y los
   valida recalculando la firma con `SECRET_KEY`. Contrapartida: no se pueden revocar antes de caducar.
 
-## 6. Privacidad
+## 7. Privacidad
 
 Cada nota tiene una visibilidad: `public`, `unlisted` o `followers`
 
@@ -125,7 +173,7 @@ Cada nota tiene una visibilidad: `public`, `unlisted` o `followers`
 - **Límite:** un servidor remoto que reciba una nota `followers` podría mostrarla a quien no
   debe; la privacidad entre servidores depende de confiar en ellos.
 
-### 6.1 Cuentas privadas
+### 7.1 Cuentas privadas
 
 - `Actor.locked` marca una cuenta privada. Seguirla crea un `Follow` en estado `pending`; sólo uno
   `accepted` cuenta como seguidor (`followers`, `local_follower_ids`, `is_follower`), así que un pendiente
@@ -138,7 +186,7 @@ Cada nota tiene una visibilidad: `public`, `unlisted` o `followers`
 
 Bloqueos: fuera de alcance (opcional).
 
-## 7. Ediciones, eliminaciones y desconexiones
+## 8. Ediciones, eliminaciones y desconexiones
 
 - **Edición:** cambia el contenido y fija `updated`. La regla *last-writer-wins* está en la
   entidad (`Note.edit`): una edición sólo se aplica si es más reciente que la última conocida, así una
