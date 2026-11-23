@@ -8,6 +8,9 @@ class NoteRepo(Protocol):
     async def delete(self, note: Note) -> None:
         """Borra la nota, sus entradas de timeline y sus republicaciones, y deja su `Tombstone`."""
         ...
+    async def add_tombstone(self, tombstone: Tombstone) -> None:
+        """Para un borrado que llega antes que la nota: así, si la nota llega después, se rechaza."""
+        ...
     async def get_tombstone(self, note_id: str) -> Tombstone | None: ...
     async def recent_by_author(self, author_id: str, limit: int, visibilities: set[str] | None = None) -> list[Note]:
         """Notas del autor, más recientes primero. `visibilities` limita las visibilidades devueltas (None = todas)."""

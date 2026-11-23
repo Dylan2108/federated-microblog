@@ -1,5 +1,6 @@
 from typing import Protocol
 
+from app.domain.ports.activities import ActivityRepo
 from app.domain.ports.actors import ActorRepo
 from app.domain.ports.federation import Federation
 from app.domain.ports.notes import NoteRepo
@@ -21,5 +22,6 @@ class Repos(Protocol):
     reposts: RepostRepo
     follows: FollowRepo
     timeline: TimelineRepo
+    activities: ActivityRepo
 
     async def commit(self) -> None: ...

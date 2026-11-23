@@ -31,7 +31,7 @@ def note_to_dict(note: Note) -> dict:
         "attributedTo": actor_to_dict(note.author),
         "content": note.content,
         "visibility": note.visibility,
-        "published": note.published,
+        "published": note.published.isoformat(),
         "updated": note.updated and note.updated.isoformat()
     }
 

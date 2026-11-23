@@ -35,6 +35,9 @@ class MemoryNoteRepo:
         for repo in self.dependents:
             repo.drop_note(note.id)
 
+    async def add_tombstone(self, tombstone):
+        self.tombstones[tombstone.id] = tombstone
+
     async def get_tombstone(self, note_id):
         return self.tombstones.get(note_id)
 
@@ -139,6 +142,16 @@ class MemoryTimelineRepo:
 
 def _newest(notes, limit):
     return sorted(notes, key=lambda n: n.published, reverse=True)[:limit]
+
+class MemoryActivityRepo:
+    def __init__(self):
+        self.ids: set[str] = set()
+
+    async def seen(self, activity_id):
+        return activity_id in self.ids
+
+    async def add(self, activity_id):
+        self.ids.add(activity_id)
 class MemoryRepos:
     def __init__(self, domain: str = "localhost", federation: Federation | None = None):
         self.domain = domain
@@ -148,6 +161,7 @@ class MemoryRepos:
         self.reposts = MemoryRepostRepo()
         self.follows = MemoryFollowRepo(self.actors)
         self.timeline = MemoryTimelineRepo(self.notes, self.actors)
+        self.activities = MemoryActivityRepo()
         self.notes.dependents = (self.reposts, self.timeline)
         self.commits = 0
 

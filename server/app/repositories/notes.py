@@ -20,6 +20,9 @@ class NoteRepo:
         self.db.add(Tombstone(id=note.id, author_id=note.author_id))
         await self.db.delete(note)
 
+    async def add_tombstone(self, tombstone: Tombstone) -> None:
+        self.db.add(tombstone)
+
     async def get_tombstone(self, note_id: str) -> Tombstone | None:
         return await self.db.get(Tombstone, note_id)
 

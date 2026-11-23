@@ -68,6 +68,13 @@ timeline_entries = Table(
     Column("reposted_by", ForeignKey("actors.id", ondelete="CASCADE")),  # None = llegó por el autor
 )
 
+received_activities = Table(
+    "received_activities",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("received", DateTime(timezone=True), nullable=False),
+)
+
 mapper_registry = registry(metadata=metadata)
 mapper_registry.map_imperatively(Actor, actors)
 mapper_registry.map_imperatively(Note, notes, properties={"author": relationship(Actor, lazy="joined")})

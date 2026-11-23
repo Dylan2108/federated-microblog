@@ -1,0 +1,6 @@
+from typing import Protocol
+
+class ActivityRepo(Protocol):
+    """Ids de las actividades ya recibidas de otros servidores: hacen idempotente la recepción."""
+    async def seen(self, activity_id: str) -> bool: ...
+    async def add(self, activity_id: str) -> None: ...

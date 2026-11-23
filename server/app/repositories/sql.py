@@ -1,6 +1,7 @@
 """Adaptador SQL: los repositorios de una petición sobre una misma sesión de SQLAlchemy."""
 from app.domain.ports import Federation
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.repositories.activities import ActivityRepo
 from app.repositories.actors import ActorRepo
 from app.repositories.follows import FollowRepo
 from app.repositories.notes import NoteRepo
@@ -18,6 +19,7 @@ class SqlRepos:
         self.reposts = RepostRepo(db)
         self.follows = FollowRepo(db)
         self.timeline = TimelineRepo(db)
+        self.activities = ActivityRepo(db)
 
     async def commit(self) -> None:
         await self.db.commit()
